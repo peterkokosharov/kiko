@@ -1,8 +1,8 @@
 #!/bin/bash
 # run-claude.sh - Launch Claude Code with required environment
 # Usage: chmod +x run-claude.sh && ./run-claude.sh
-# Or: exec ~/litellm-try/run-claude.sh
-# Or add alias: alias claude='~/litellm-try/run-claude.sh'
+# Or: exec ~/kiko_lite/run-claude.sh
+# Or add alias: alias claude='~/kiko_lite/run-claude.sh'
 
 # LiteLLM / Anthropic proxy configuration
 export LITELLM_DROP_PARAMS="True"
@@ -21,6 +21,9 @@ export ANTHROPIC_DEFAULT_FABLE_MODEL="gemini/gemini-flash"
 # Protective flags for Claude Code
 export CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1
 export DISABLE_PROMPT_CACHING=1
+
+# Add local kikolib to PYTHONPATH
+export PYTHONPATH="/home/petark/kiko_lite/kikolib${PYTHONPATH:+:$PYTHONPATH}"
 
 # Launch Claude
 exec claude "$@"
