@@ -403,6 +403,30 @@ def serve_frontend(req: kserver.Request) -> kserver.StreamResponse:
             return kserver.StreamResponse([file_path.read_bytes()], status=200, headers={"Content-Type": mime})
         return kserver.StreamResponse([b"Not found"], status=404, headers={"Content-Type": "text/plain"})
 
+    # Model form page (public - auth checked inside)
+    if path == "/models/new" or path.startswith("/models/edit/"):
+        user = require_auth(req)
+        if not user:
+            return kserver.StreamResponse([b""], status=302, headers={"Location": "/login"})
+        html = (TEMPLATES_DIR / "model_form.html").read_text(encoding="utf-8")
+        return kserver.StreamResponse([html.encode("utf-8")], status=200, headers={"Content-Type": "text/html"}, content_type="text/html")
+
+    # Class form page (public - auth checked inside)
+    if path == "/classes/new" or path.startswith("/classes/edit/"):
+        user = require_auth(req)
+        if not user:
+            return kserver.StreamResponse([b""], status=302, headers={"Location": "/login"})
+        html = (TEMPLATES_DIR / "class_form.html").read_text(encoding="utf-8")
+        return kserver.StreamResponse([html.encode("utf-8")], status=200, headers={"Content-Type": "text/html"}, content_type="text/html")
+
+    # Alias form page (public - auth checked inside)
+    if path == "/aliases/new" or path.startswith("/aliases/edit/"):
+        user = require_auth(req)
+        if not user:
+            return kserver.StreamResponse([b""], status=302, headers={"Location": "/login"})
+        html = (TEMPLATES_DIR / "alias_form.html").read_text(encoding="utf-8")
+        return kserver.StreamResponse([html.encode("utf-8")], status=200, headers={"Content-Type": "text/html"}, content_type="text/html")
+
     # Check auth for SPA routes
     user = require_auth(req)
     if not user:
@@ -423,10 +447,12 @@ def build_web_app() -> kserver.App:
     app.route("GET", "/api/models")(api_models)
     app.route("GET", "/api/models/{alias}")(api_model_get)
     app.route("POST", "/api/models")(api_model_post)
+    app.route("PUT", "/api/models/{alias}")(api_model_post)
     app.route("DELETE", "/api/models/{alias}")(api_model_delete)
 
     app.route("GET", "/api/classes")(api_classes)
     app.route("POST", "/api/classes")(api_class_post)
+    app.route("PUT", "/api/classes/{name}")(api_class_post)
     app.route("DELETE", "/api/classes/{name}")(api_class_delete)
 
     app.route("GET", "/api/billing")(api_billing)
@@ -440,6 +466,7 @@ def build_web_app() -> kserver.App:
 
     app.route("GET", "/api/aliases")(api_aliases)
     app.route("POST", "/api/aliases")(api_alias_post)
+    app.route("PUT", "/api/aliases/{glob}")(api_alias_post)
     app.route("DELETE", "/api/aliases/{glob}")(api_alias_delete)
 
     app.route("GET", "/api/key-status/{alias}")(api_key_status)

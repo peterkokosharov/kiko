@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kiko-lite web-ui - Model Form</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>kiko-lite web-ui</h1>
+        <div class="header-right">
+            <a href="/" class="btn-secondary btn-sm">← Back</a>
+            <span class="user-name">admin</span>
+            <button class="btn-secondary btn-sm" onclick="handleLogout()">Logout</button>
+        </div>
+    </header>
+
+    <main style="max-width: 800px; margin: 0 auto; padding: 1.5rem;">
+        <h2 id="page-title">Add Model</h2>
+
+        <form id="form-model" method="POST">
+            <input type="hidden" id="model-alias" name="alias">
+
+            <div class="form-row">
+                <label>Alias <span class="required">*</span></label>
+                <input type="text" name="alias" id="f-alias" required>
+            </div>
+            <div class="form-row">
+                <label>Provider <span class="required">*</span></label>
+                <input type="text" name="provider" id="f-provider" placeholder="gemini/gemini-3.8-flash" required>
+            </div>
+            <div class="form-row">
+                <label>API Base (optional)</label>
+                <input type="text" name="api_base" id="f-api_base" placeholder="https://api.example.com/v1">
+            </div>
+            <div class="form-row">
+                <label>API Key Env Name <span class="required">*</span></label>
+                <input type="text" name="api_key_env" id="f-api_key_env" placeholder="GEMINI_API_KEY" required>
+            </div>
+            <div class="form-row">
+                <label>Class</label>
+                <select name="model_class" id="f-model_class">
+                    <option value="OPUS">OPUS</option>
+                    <option value="SONNET" selected>SONNET</option>
+                    <option value="HAIKU">HAIKU</option>
+                    <option value="FABLE">FABLE</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label>Priority</label>
+                <input type="number" name="priority" id="f-priority" value="100" min="1">
+            </div>
+            <div class="form-row">
+                <label>Price In ($/Mtok)</label>
+                <input type="number" name="price_in_per_mtok" id="f-price_in_per_mtok" step="0.0001" min="0">
+            </div>
+            <div class="form-row">
+                <label>Price Out ($/Mtok)</label>
+                <input type="number" name="price_out_per_mtok" id="f-price_out_per_mtok" step="0.0001" min="0">
+            </div>
+            <div class="form-row">
+                <label>Price Cache ($/Mtok)</label>
+                <input type="number" name="price_cache_read_per_mtok" id="f-price_cache_read_per_mtok" step="0.0001" min="0">
+            </div>
+            <div class="form-row">
+                <label>Enabled</label>
+                <input type="checkbox" name="enabled" id="f-enabled" checked>
+            </div>
+            <div class="form-row">
+                <label>Status</label>
+                <select name="status" id="f-status">
+                    <option value="unknown">unknown</option>
+                    <option value="ok">ok</option>
+                    <option value="error">error</option>
+                </select>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <a href="/" class="btn-secondary">Cancel</a>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
+    </main>
+
+    <script type="module">
+        import { apiGet, apiPost } from '/static/core/api.js';
+        import { showError } from '/static/core/auth.js';
+
+        // Check if editing - extract alias from path /models/edit/:alias
+        const pathParts = window.location.pathname.split('/');
+        const editAlias = pathParts[3]; // /models/edit/:alias
+        const isEdit = pathParts[2] === 'edit';
+
+        document.getElementById('page-title').textContent = isEdit ? 'Edit Model' : 'Add Model';
+        if (isEdit) {
+            document.getElementById('model-alias').value = editAlias;
+            document.getElementById('f-alias').value = editAlias;
+            document.getElementById('f-alias').readOnly = true;
+            loadModel(editAlias);
+        }
+
+        async function loadModel(alias) {
+            try {
+                const data = await apiGet('/models/' + encodeURIComponent(alias));
+                document.getElementById('f-provider').value = data.provider || '';
+                document.getElementById('f-api_base').value = data.api_base || '';
+                document.getElementById('f-api_key_env').value = data.api_key_env || '';
+                document.getElementById('f-model_class').value = data.model_class || 'SONNET';
+                document.getElementById('f-priority').value = data.priority || 100;
+                document.getElementById('f-price_in_per_mtok').value = data.price_in_per_mtok || '';
+                document.getElementById('f-price_out_per_mtok').value = data.price_out_per_mtok || '';
+                document.getElementById('f-price_cache_read_per_mtok').value = data.price_cache_read_per_mtok || '';
+                document.getElementById('f-enabled').checked = data.enabled === 1 || data.enabled === true;
+                document.getElementById('f-status').value = data.status || 'unknown';
+            } catch (e) {
+                showError('Failed to load model: ' + e.message);
+            }
+        }
+
+        document.getElementById('form-model').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const data = Object.fromEntries(fd);
+            data.enabled = data.enabled ? 1 : 0;
+            data.priority = parseInt(data.priority) || 100;
+            if (data.price_in_per_mtok === '') data.price_in_per_mtok = null;
+            if (data.price_out_per_mtok === '') data.price_out_per_mtok = null;
+            if (data.price_cache_read_per_mtok === '') data.price_cache_read_per_mtok = null;
+
+            try {
+                const endpoint = isEdit ? '/models/' + encodeURIComponent(editAlias) : '/models';
+                const method = isEdit ? 'PUT' : 'POST';
+                // Our API uses POST for both create and update
+                await apiPost('/models', data);
+                window.location.href = '/';
+            } catch (e) {
+                showError('Failed to save model: ' + e.message);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -4,11 +4,9 @@
 
 import { apiGet, apiPost, apiDelete } from '../core/api.js';
 import { Table } from '../components/table.js';
-import { Modal, confirmDialog } from '../components/modal.js';
 import { escapeHtml } from '../core/utils.js';
 
 let aliasesTable = null;
-let aliasModal = null;
 
 export async function initAliases() {
     aliasesTable = new Table(
@@ -25,16 +23,10 @@ export async function initAliases() {
         }
     );
 
-    aliasModal = new Modal('modal-alias', {
-        title: 'Add Alias',
-        size: 'sm',
-        content: getModalContent(),
-        onClose: () => { document.getElementById('form-alias').reset(); }
+    // Add button - navigate to form page
+    document.getElementById('btn-add-alias').addEventListener('click', () => {
+        window.location.href = '/aliases/new';
     });
-    aliasModal.render();
-
-    document.getElementById('form-alias').addEventListener('submit', handleAliasSubmit);
-    document.getElementById('btn-add-alias').addEventListener('click', () => openAliasModal());
 
     await loadAliases();
 }
@@ -48,51 +40,21 @@ async function loadAliases() {
     }
 }
 
-function openAliasModal() {
-    document.getElementById('form-alias').reset();
-    aliasModal.show();
-}
+// Add button - navigate to form page
+document.getElementById('btn-add-alias').addEventListener('click', () => {
+    window.location.href = '/aliases/new';
+});
 
 async function deleteAlias(glob) {
-    confirmDialog('Delete alias "' + glob + '"?', async () => {
+    if (confirm('Delete alias "' + glob + '"?')) {
         try {
             await apiDelete('/aliases/' + encodeURIComponent(glob));
             await loadAliases();
         } catch (e) {
             showError('Failed to delete alias: ' + e.message);
         }
-    });
-}
-
-async function handleAliasSubmit(e) {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const data = Object.fromEntries(fd);
-
-    try {
-        await apiPost('/aliases', data);
-        aliasModal.hide();
-        await loadAliases();
-    } catch (e) {
-        showError('Failed to save alias: ' + e.message);
     }
 }
 
-function getModalContent() {
-    return `
-        <form id="form-alias">
-            <div class="form-row">
-                <label>Glob Pattern <span class="required">*</span></label>
-                <input type="text" name="glob" id="f-alias-glob" placeholder="claude-*" required>
-            </div>
-            <div class="form-row">
-                <label>Target Model <span class="required">*</span></label>
-                <input type="text" name="target" id="f-alias-target" placeholder="gemini-flash" required>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn-secondary" onclick="Modal.closeAll()">Cancel</button>
-                <button type="submit" class="btn-primary">Save</button>
-            </div>
-        </form>
-    `;
-}
+// Global for onclick handlers
+window.deleteAlias = deleteAlias;
