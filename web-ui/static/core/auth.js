@@ -114,9 +114,6 @@ export function initChangePasswordForm(onSuccess) {
     });
 }
 
-// Global error display
-export function showError(msg) {
-
 // Expose for onclick handlers
 window.showChangePasswordModal = function() {
     const modal = document.getElementById('modal-change-pass');
@@ -137,6 +134,7 @@ window.closeModal = function(id) {
     if (modal) modal.classList.add('hidden');
 };
 
+// Global error display
 export function showError(msg) {
     // Create or reuse toast
     let toast = document.getElementById('toast');
