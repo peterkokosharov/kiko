@@ -4,7 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from kiko import db
+from kiko_lite import db
 
 
 class TestDefaultPath(unittest.TestCase):

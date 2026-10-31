@@ -3,10 +3,10 @@
 import json
 import unittest
 from unittest.mock import Mock, MagicMock, patch
-from kiko import app as lite
-from kiko import providers as ptable
-from kiko.providers import openai_compat as oc
-from kiko.providers import gemini
+from kiko_lite import app as lite
+from kiko_lite import providers as ptable
+from kiko_lite.providers import openai_compat as oc
+from kiko_lite.providers import gemini
 
 
 class TestValidModelId(unittest.TestCase):

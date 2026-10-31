@@ -4,9 +4,9 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from kiko import db
-from kiko import resolver
-from kiko import providers as ptable
+from kiko_lite import db
+from kiko_lite import resolver
+from kiko_lite import providers as ptable
 
 
 class TestKeyNameProblem(unittest.TestCase):
@@ -354,7 +354,7 @@ class TestBillingWriter(unittest.TestCase):
         writer = resolver.BillingWriter(self.db, catalog)
 
         # Mock RequestResult
-        from kiko import app as lite
+        from kiko_lite import app as lite
         res = lite.RequestResult(
             request_id="test123",
             client_model="model1",
@@ -384,7 +384,7 @@ class TestBillingWriter(unittest.TestCase):
         catalog = resolver.Catalog(self.db)
         writer = resolver.BillingWriter(self.db, catalog)
 
-        from kiko import app as lite
+        from kiko_lite import app as lite
         res = lite.RequestResult(
             request_id="test123",
             client_model="model1",
@@ -412,7 +412,7 @@ class TestBillingWriter(unittest.TestCase):
         catalog = resolver.Catalog(self.db)
         writer = resolver.BillingWriter(self.db, catalog)
 
-        from kiko import app as lite
+        from kiko_lite import app as lite
         res = lite.RequestResult(
             request_id="test123",
             client_model="model1",

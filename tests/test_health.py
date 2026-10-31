@@ -2,7 +2,7 @@
 """Tests for health module."""
 import unittest
 from unittest.mock import Mock, MagicMock
-from kiko import health
+from kiko_lite import health
 
 
 class TestParseInterval(unittest.TestCase):

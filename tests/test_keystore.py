@@ -7,9 +7,9 @@ import unittest
 from unittest.mock import Mock, MagicMock, patch, call
 
 # Need to set up path to import kikolib
-sys.path.insert(0, '/home/petark/kiko/kiko')
+sys.path.insert(0, "/home/petark/kiko_lite")
 
-from kiko.kikolib import keystore
+from kikolib import keystore
 
 
 class TestDcopStore(unittest.TestCase):
@@ -18,7 +18,7 @@ class TestDcopStore(unittest.TestCase):
     def setUp(self):
         self.store = keystore.DcopStore()
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_open_success_kded(self, mock_run):
         """Test DCOP open succeeds with kded target."""
         # First call: open returns handle "123"
@@ -40,7 +40,7 @@ class TestDcopStore(unittest.TestCase):
         # Third call should be close
         self.assertEqual(mock_run.call_args_list[2][0][0], ["dcop", "kded", "kwalletd", "close", "123", "0"])
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_open_fails_kded_tries_kwalletd(self, mock_run):
         """Test DCOP falls back to kwalletd target when kded fails."""
         mock_run.side_effect = [
@@ -57,7 +57,7 @@ class TestDcopStore(unittest.TestCase):
         # Second open attempt with kwalletd
         self.assertEqual(mock_run.call_args_list[1][0][0], ["dcop", "kwalletd", "open", "kdewallet", "0"])
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_both_targets_fail(self, mock_run):
         """Test DCOP returns None when both targets fail."""
         mock_run.side_effect = [
@@ -68,7 +68,7 @@ class TestDcopStore(unittest.TestCase):
         self.assertIsNone(result)
         self.assertEqual(mock_run.call_count, 2)
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_open_returns_invalid_handle(self, mock_run):
         """Test DCOP handles invalid handle from open."""
         mock_run.side_effect = [
@@ -80,7 +80,7 @@ class TestDcopStore(unittest.TestCase):
         result = self.store.get("TEST_KEY")
         self.assertEqual(result, "secret-value")
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_read_returns_minus_one(self, mock_run):
         """Test DCOP handles -1 return from readPassword (not found)."""
         mock_run.side_effect = [
@@ -91,7 +91,7 @@ class TestDcopStore(unittest.TestCase):
         result = self.store.get("TEST_KEY")
         self.assertIsNone(result)
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_read_returns_empty(self, mock_run):
         """Test DCOP handles empty return from readPassword."""
         mock_run.side_effect = [
@@ -102,7 +102,7 @@ class TestDcopStore(unittest.TestCase):
         result = self.store.get("TEST_KEY")
         self.assertIsNone(result)
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_set_success(self, mock_run):
         """Test DCOP set (writePassword) success."""
         mock_run.side_effect = [
@@ -115,7 +115,7 @@ class TestDcopStore(unittest.TestCase):
         # Verify writePassword was called with correct args
         self.assertEqual(mock_run.call_args_list[1][0][0], ["dcop", "kded", "kwalletd", "writePassword", "123", "Passwords", "TEST_KEY", "secret-value"])
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_set_fails_returns_nonzero(self, mock_run):
         """Test DCOP set fails when writePassword returns non-zero."""
         mock_run.side_effect = [
@@ -126,7 +126,7 @@ class TestDcopStore(unittest.TestCase):
         result = self.store.set("TEST_KEY", "secret-value")
         self.assertFalse(result)
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_delete_success(self, mock_run):
         """Test DCOP delete (removeEntry) success."""
         mock_run.side_effect = [
@@ -139,7 +139,7 @@ class TestDcopStore(unittest.TestCase):
         # Verify removeEntry was called
         self.assertEqual(mock_run.call_args_list[1][0][0], ["dcop", "kded", "kwalletd", "removeEntry", "123", "Passwords", "TEST_KEY"])
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_close_called_even_on_read_failure(self, mock_run):
         """Test DCOP always calls close even if read fails."""
         # The _call method tries both targets (kded and kwalletd)
@@ -162,7 +162,7 @@ class TestDcopStore(unittest.TestCase):
         # Check close was called for kwalletd
         self.assertEqual(mock_run.call_args_list[5][0][0], ["dcop", "kwalletd", "close", "456", "0"])
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_dcop_key_uppercased(self, mock_run):
         """Test DCOP uppercases key names."""
         mock_run.side_effect = [
@@ -181,20 +181,20 @@ class TestKWalletStore(unittest.TestCase):
     def setUp(self):
         self.store = keystore.KWalletStore()
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_kwallet_get_success(self, mock_run):
         mock_run.return_value = Mock(returncode=0, stdout="secret-value")
         result = self.store.get("TEST_KEY")
         self.assertEqual(result, "secret-value")
         mock_run.assert_called_once_with(["kwallet-query", "-r", "TEST_KEY", "-f", "Passwords", "kdewallet"])
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_kwallet_get_failure(self, mock_run):
         mock_run.return_value = Mock(returncode=1, stdout="error")
         result = self.store.get("TEST_KEY")
         self.assertIsNone(result)
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_kwallet_set_success(self, mock_run):
         mock_run.return_value = Mock(returncode=0, stdout="")
         result = self.store.set("TEST_KEY", "secret-value")
@@ -204,14 +204,14 @@ class TestKWalletStore(unittest.TestCase):
             stdin="secret-value"
         )
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_kwallet_delete_always_false(self, mock_run):
         """kwallet-query has no delete, should always return False."""
         result = self.store.delete("TEST_KEY")
         self.assertFalse(result)
         mock_run.assert_not_called()
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_kwallet_key_uppercased(self, mock_run):
         mock_run.return_value = Mock(returncode=0, stdout="secret")
         self.store.get("test_key")
@@ -225,14 +225,14 @@ class TestSecretToolStore(unittest.TestCase):
     def setUp(self):
         self.store = keystore.SecretToolStore()
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_secret_tool_get_success(self, mock_run):
         mock_run.return_value = Mock(returncode=0, stdout="secret-value")
         result = self.store.get("TEST_KEY")
         self.assertEqual(result, "secret-value")
         mock_run.assert_called_once_with(["secret-tool", "lookup", "kiko-identity", "TEST_KEY"])
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_secret_tool_set_success(self, mock_run):
         mock_run.return_value = Mock(returncode=0, stdout="")
         result = self.store.set("TEST_KEY", "secret-value")
@@ -242,7 +242,7 @@ class TestSecretToolStore(unittest.TestCase):
             stdin="secret-value"
         )
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_secret_tool_delete_success(self, mock_run):
         mock_run.return_value = Mock(returncode=0, stdout="")
         result = self.store.delete("TEST_KEY")
@@ -256,14 +256,14 @@ class TestKeychainStore(unittest.TestCase):
     def setUp(self):
         self.store = keystore.KeychainStore()
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_keychain_get_success(self, mock_run):
         mock_run.return_value = Mock(returncode=0, stdout="secret-value")
         result = self.store.get("TEST_KEY")
         self.assertEqual(result, "secret-value")
         mock_run.assert_called_once_with(["security", "find-generic-password", "-s", "KIKO", "-a", "TEST_KEY", "-w"])
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_keychain_set_success(self, mock_run):
         mock_run.return_value = Mock(returncode=0, stdout="")
         result = self.store.set("TEST_KEY", "secret-value")
@@ -271,7 +271,7 @@ class TestKeychainStore(unittest.TestCase):
         # Note: -U updates if exists
         mock_run.assert_called_once_with(["security", "add-generic-password", "-s", "KIKO", "-a", "TEST_KEY", "-w", "secret-value", "-U"])
 
-    @patch('kiko.kikolib.keystore._run')
+    @patch('kikolib.keystore._run')
     def test_keychain_delete_success(self, mock_run):
         mock_run.return_value = Mock(returncode=0, stdout="")
         result = self.store.delete("TEST_KEY")
@@ -285,21 +285,21 @@ class TestWcmStore(unittest.TestCase):
     def setUp(self):
         self.store = keystore.WcmStore()
 
-    @patch('kiko.kikolib.keystore._wcm_read')
+    @patch('kikolib.keystore._wcm_read')
     def test_wcm_get_success(self, mock_read):
         mock_read.return_value = "secret-value"
         result = self.store.get("TEST_KEY")
         self.assertEqual(result, "secret-value")
         mock_read.assert_called_once_with("KIKO/KIKO_IDENTITY/TEST_KEY")
 
-    @patch('kiko.kikolib.keystore._wcm_write')
+    @patch('kikolib.keystore._wcm_write')
     def test_wcm_set_success(self, mock_write):
         mock_write.return_value = True
         result = self.store.set("TEST_KEY", "secret-value")
         self.assertTrue(result)
         mock_write.assert_called_once_with("KIKO/KIKO_IDENTITY/TEST_KEY", "secret-value")
 
-    @patch('kiko.kikolib.keystore._wcm_delete')
+    @patch('kikolib.keystore._wcm_delete')
     def test_wcm_delete_success(self, mock_delete):
         mock_delete.return_value = True
         result = self.store.delete("TEST_KEY")
@@ -315,75 +315,75 @@ class TestWcmStore(unittest.TestCase):
 class TestKeystoreProbes(unittest.TestCase):
     """Tests for keystore backend probes."""
 
-    @patch('kiko.kikolib.keystore.sys.platform', 'win32')
+    @patch('kikolib.keystore.sys.platform', 'win32')
     def test_probe_wcm_windows(self):
         ok, msg = keystore._probe_wcm()
         self.assertTrue(ok)
         self.assertEqual(msg, "Windows Credential Manager")
 
-    @patch('kiko.kikolib.keystore.sys.platform', 'linux')
+    @patch('kikolib.keystore.sys.platform', 'linux')
     def test_probe_wcm_not_windows(self):
         ok, msg = keystore._probe_wcm()
         self.assertFalse(ok)
         self.assertEqual(msg, "not Windows")
 
-    @patch('kiko.kikolib.keystore.sys.platform', 'darwin')
-    @patch('kiko.kikolib.keystore.shutil.which')
+    @patch('kikolib.keystore.sys.platform', 'darwin')
+    @patch('kikolib.keystore.shutil.which')
     def test_probe_keychain_macos_found(self, mock_which):
         mock_which.return_value = "/usr/bin/security"
         ok, msg = keystore._probe_keychain()
         self.assertTrue(ok)
         self.assertEqual(msg, "security found")
 
-    @patch('kiko.kikolib.keystore.sys.platform', 'darwin')
-    @patch('kiko.kikolib.keystore.shutil.which')
+    @patch('kikolib.keystore.sys.platform', 'darwin')
+    @patch('kikolib.keystore.shutil.which')
     def test_probe_keychain_macos_not_found(self, mock_which):
         mock_which.return_value = None
         ok, msg = keystore._probe_keychain()
         self.assertFalse(ok)
         self.assertEqual(msg, "security not on PATH")
 
-    @patch('kiko.kikolib.keystore.sys.platform', 'linux')
+    @patch('kikolib.keystore.sys.platform', 'linux')
     def test_probe_keychain_not_macos(self):
         ok, msg = keystore._probe_keychain()
         self.assertFalse(ok)
         self.assertEqual(msg, "not macOS")
 
-    @patch('kiko.kikolib.keystore.sys.platform', 'linux')
-    @patch('kiko.kikolib.keystore.os.environ', {'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus'})
-    @patch('kiko.kikolib.keystore.shutil.which')
+    @patch('kikolib.keystore.sys.platform', 'linux')
+    @patch('kikolib.keystore.os.environ', {'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus'})
+    @patch('kikolib.keystore.shutil.which')
     def test_probe_secret_tool_found(self, mock_which):
         mock_which.return_value = "/usr/bin/secret-tool"
         ok, msg = keystore._probe_secret_tool()
         self.assertTrue(ok)
         self.assertEqual(msg, "secret-tool found")
 
-    @patch('kiko.kikolib.keystore.sys.platform', 'linux')
-    @patch('kiko.kikolib.keystore.os.environ', {'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus'})
-    @patch('kiko.kikolib.keystore.shutil.which')
+    @patch('kikolib.keystore.sys.platform', 'linux')
+    @patch('kikolib.keystore.os.environ', {'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus'})
+    @patch('kikolib.keystore.shutil.which')
     def test_probe_secret_tool_not_found(self, mock_which):
         mock_which.return_value = None
         ok, msg = keystore._probe_secret_tool()
         self.assertFalse(ok)
         self.assertEqual(msg, "secret-tool not on PATH")
 
-    @patch('kiko.kikolib.keystore.sys.platform', 'linux')
-    @patch('kiko.kikolib.keystore.os.environ', {})
+    @patch('kikolib.keystore.sys.platform', 'linux')
+    @patch('kikolib.keystore.os.environ', {})
     def test_probe_secret_tool_no_dbus(self):
         ok, msg = keystore._probe_secret_tool()
         self.assertFalse(ok)
         self.assertEqual(msg, "no DBUS_SESSION_BUS_ADDRESS")
 
-    @patch('kiko.kikolib.keystore.sys.platform', 'linux')
-    @patch('kiko.kikolib.keystore.shutil.which')
+    @patch('kikolib.keystore.sys.platform', 'linux')
+    @patch('kikolib.keystore.shutil.which')
     def test_probe_kwallet_found(self, mock_which):
         mock_which.return_value = "/usr/bin/kwallet-query"
         ok, msg = keystore._probe_kwallet()
         self.assertTrue(ok)
         self.assertEqual(msg, "kwallet-query found")
 
-    @patch('kiko.kikolib.keystore.sys.platform', 'linux')
-    @patch('kiko.kikolib.keystore.shutil.which')
+    @patch('kikolib.keystore.sys.platform', 'linux')
+    @patch('kikolib.keystore.shutil.which')
     def test_probe_dcop_found(self, mock_which):
         mock_which.return_value = "/usr/bin/dcop"
         ok, msg = keystore._probe_dcop()
@@ -400,7 +400,7 @@ class TestKeystoreIntegration(unittest.TestCase):
 
     def test_factory_registration(self):
         """Test backends are registered with factory."""
-        from kiko.kikolib import factory
+        from kikolib import factory
         available = factory.available(keystore.KIND)
         names = [name for name, _ in available]
         # On Linux, wcm and keychain won't be available (probes fail)
@@ -420,7 +420,7 @@ class TestKeystoreIntegration(unittest.TestCase):
             result = keystore.get_secret("test_key")
             self.assertEqual(result, "env-value")
 
-    @patch('kiko.kikolib.keystore.factory')
+    @patch('kikolib.keystore.factory')
     def test_get_secret_store_fallback(self, mock_factory):
         """Test falling back to OS store when no env var."""
         mock_store = Mock()
@@ -428,12 +428,12 @@ class TestKeystoreIntegration(unittest.TestCase):
         mock_factory.available.return_value = [("test_store", mock_store)]
 
         with patch.dict(os.environ, {}, clear=True):
-            with patch('kiko.kikolib.keystore._store', return_value=mock_store):
+            with patch('kikolib.keystore._store', return_value=mock_store):
                 result = keystore.get_secret("TEST_KEY")
                 self.assertEqual(result, "store-value")
                 mock_store.get.assert_called_once_with("TEST_KEY")
 
-    @patch('kiko.kikolib.keystore._store')
+    @patch('kikolib.keystore._store')
     def test_get_secret_tries_all_stores(self, mock_store):
         """Test trying multiple stores until one returns value."""
         store1 = Mock()
@@ -443,13 +443,13 @@ class TestKeystoreIntegration(unittest.TestCase):
         store3 = Mock()
         store3.get.return_value = "store3-value"
 
-        with patch('kiko.kikolib.keystore.factory') as mock_factory:
+        with patch('kikolib.keystore.factory') as mock_factory:
             mock_factory.available.return_value = [("store1", store1), ("store2", store2), ("store3", store3)]
             with patch.dict(os.environ, {}, clear=True):
                 result = keystore.get_secret("TEST_KEY")
                 self.assertEqual(result, "store2-value")
 
-    @patch('kiko.kikolib.keystore._store')
+    @patch('kikolib.keystore._store')
     def test_set_secret(self, mock_store):
         """Test set_secret uses first available store."""
         mock_store_instance = Mock()
@@ -460,14 +460,14 @@ class TestKeystoreIntegration(unittest.TestCase):
         self.assertTrue(result)
         mock_store_instance.set.assert_called_once_with("TEST_KEY", "secret-value")
 
-    @patch('kiko.kikolib.keystore._store')
+    @patch('kikolib.keystore._store')
     def test_set_secret_no_store(self, mock_store):
         """Test set_secret returns False when no store available."""
         mock_store.return_value = None
         result = keystore.set_secret("TEST_KEY", "secret-value")
         self.assertFalse(result)
 
-    @patch('kiko.kikolib.keystore.factory')
+    @patch('kikolib.keystore.factory')
     def test_keystore_impl_env_override(self, mock_factory):
         """Test KIKO_KEYSTORE_IMPL env var forces specific store."""
         mock_store = Mock()
@@ -485,7 +485,7 @@ class TestKeystoreHelpers(unittest.TestCase):
 
     def test_run_success(self):
         """Test _run returns CompletedProcess on success."""
-        with patch('kiko.kikolib.keystore.subprocess.run') as mock_run:
+        with patch('kikolib.keystore.subprocess.run') as mock_run:
             mock_run.return_value = subprocess.CompletedProcess([], 0, stdout="output", stderr="")
             result = keystore._run(["test"])
             self.assertIsNotNone(result)
@@ -494,14 +494,14 @@ class TestKeystoreHelpers(unittest.TestCase):
 
     def test_run_timeout(self):
         """Test _run returns None on timeout."""
-        with patch('kiko.kikolib.keystore.subprocess.run') as mock_run:
+        with patch('kikolib.keystore.subprocess.run') as mock_run:
             mock_run.side_effect = subprocess.TimeoutExpired([], 3)
             result = keystore._run(["test"])
             self.assertIsNone(result)
 
     def test_run_os_error(self):
         """Test _run returns None on OSError."""
-        with patch('kiko.kikolib.keystore.subprocess.run') as mock_run:
+        with patch('kikolib.keystore.subprocess.run') as mock_run:
             mock_run.side_effect = OSError("not found")
             result = keystore._run(["test"])
             self.assertIsNone(result)

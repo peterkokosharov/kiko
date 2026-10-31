@@ -2,9 +2,9 @@
 """Tests for providers module."""
 import json
 import unittest
-from kiko import providers as ptable
-from kiko.providers import openai_compat as oc
-from kiko.providers import gemini
+from kiko_lite import providers as ptable
+from kiko_lite.providers import openai_compat as oc
+from kiko_lite.providers import gemini
 
 
 class TestProvidersTable(unittest.TestCase):
