@@ -379,9 +379,13 @@ def build_web_app() -> kserver.App:
 
     # Auth routes (public)
     app.route("POST", "/api/auth/login")(api_login)
+    app.route("POST", "/api/auth/login/")(api_login)
     app.route("POST", "/api/auth/logout")(api_logout)
+    app.route("POST", "/api/auth/logout/")(api_logout)
     app.route("POST", "/api/auth/change-password")(api_change_password)
+    app.route("POST", "/api/auth/change-password/")(api_change_password)
     app.route("GET", "/api/auth/status")(api_auth_status)
+    app.route("GET", "/api/auth/status/")(api_auth_status)
 
     # Frontend - explicit routes (kikolib.server doesn't support /* catch-all)
     app.route("GET", "/")(serve_frontend)
