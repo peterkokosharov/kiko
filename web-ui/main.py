@@ -84,11 +84,10 @@ def api_class_post(req: kserver.Request) -> kserver.JsonResponse:
     name = data.get("name", "").upper()
     keyword = data.get("keyword", "").lower()
     role = data.get("role", "")
-    sort = data.get("sort", 100)
     if not name or not keyword:
         return kserver.JsonResponse({"error": "name and keyword required"}, status=400)
     try:
-        DB.add_class(name, keyword, role, sort)
+        DB.add_class(name, keyword, role)
     except ValueError as e:
         return kserver.JsonResponse({"error": str(e)}, status=400)
     return kserver.JsonResponse({"name": name, "keyword": keyword})
