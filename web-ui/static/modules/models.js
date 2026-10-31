@@ -13,7 +13,7 @@ let modelModal = null;
 export async function initModels() {
     // Create table
     modelsTable = new Table(
-        document.querySelector('#models-table tbody'),
+        document.querySelector('#models-table'),
         [
             { key: 'alias', label: 'Alias', render: r => `<code>${escapeHtml(r.alias)}</code>` },
             { key: 'provider', label: 'Provider', render: r => `<code>${escapeHtml(r.provider)}</code>` },

@@ -61,15 +61,6 @@ async function init() {
             Modal.closeAll();
         }
     });
-
-    // Close dropdown on outside click
-    document.addEventListener('click', (e) => {
-        const dropdown = document.getElementById('user-dropdown');
-        const userBtn = document.getElementById('user-btn');
-        if (dropdown && userBtn && !userBtn.contains(e.target) && !dropdown.contains(e.target)) {
-            dropdown.classList.remove('show');
-        }
-    });
 }
 
 function onPasswordChanged() {

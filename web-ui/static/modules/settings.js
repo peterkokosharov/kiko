@@ -10,7 +10,7 @@ let settingsTable = null;
 
 export async function initSettings() {
     settingsTable = new Table(
-        document.querySelector('#settings-table tbody'),
+        document.querySelector('#settings-table'),
         [
             { key: 'key', label: 'Key', render: r => `<code>${escapeHtml(r.key)}</code>` },
             { key: 'value', label: 'Value', render: r => `<code>${escapeHtml(r.value)}</code>` }

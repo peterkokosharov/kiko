@@ -4,6 +4,8 @@
 
 import { escapeHtml, formatNumber, formatMoney } from '../core/utils.js';
 
+export { escapeHtml, formatNumber, formatMoney };
+
 export class Table {
     constructor(container, columns, options = {}) {
         this.container = container;

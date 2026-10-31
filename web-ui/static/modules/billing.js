@@ -3,13 +3,13 @@
 // Author: Peter Kokosharov <peter.kokosharov@gmail.com>
 
 import { apiGet } from '../core/api.js';
-import { Table, formatNumber, formatMoney } from '../components/table.js';
+import { Table, formatNumber, formatMoney, escapeHtml } from '../components/table.js';
 
 let billingTable = null;
 
 export async function initBilling() {
     billingTable = new Table(
-        document.querySelector('#billing-table tbody'),
+        document.querySelector('#billing-table'),
         [
             { key: 'model', label: 'Model', render: r => `<code>${escapeHtml(r.model)}</code>` },
             { key: 'calls', label: 'Calls', sortable: true, render: r => formatNumber(r.calls) },
@@ -41,21 +41,4 @@ async function loadBilling() {
     } catch (e) {
         showError('Failed to load billing: ' + e.message);
     }
-}
-
-function escapeHtml(text) {
-    if (text === null || text === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
-}
-
-function formatNumber(n) {
-    if (n === null || n === undefined) return '—';
-    return Number(n).toLocaleString();
-}
-
-function formatMoney(n) {
-    if (n === null || n === undefined) return '—';
-    return '$' + Number(n).toFixed(6);
 }

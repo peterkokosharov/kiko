@@ -11,15 +11,8 @@
         <h1>kiko-lite web-ui</h1>
         <div class="header-right" id="header-right">
             <div class="user-menu">
-                <button class="user-btn" id="user-btn">
-                    <span>admin</span>
-                    <span>▼</span>
-                </button>
-                <div class="user-dropdown" id="user-dropdown">
-                    <a href="#" onclick="showChangePasswordModal(); return false;">Change Password</a>
-                    <hr>
-                    <button onclick="handleLogout()">Logout</button>
-                </div>
+                <span class="user-name">admin</span>
+                <button class="btn-secondary btn-sm" onclick="handleLogout()">Logout</button>
             </div>
         </div>
     </header>
@@ -66,18 +59,6 @@
                 <button id="btn-add-model" class="btn-primary">Add Model</button>
             </div>
             <table id="models-table">
-                <thead>
-                    <tr>
-                        <th>Alias</th>
-                        <th>Provider</th>
-                        <th>Class</th>
-                        <th>Priority</th>
-                        <th>Status</th>
-                        <th>Enabled</th>
-                        <th>Key</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
                 <tbody></tbody>
             </table>
         </section>
@@ -89,16 +70,6 @@
                 <button id="btn-add-class" class="btn-primary">Add Class</button>
             </div>
             <table id="classes-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Keyword</th>
-                        <th>Role</th>
-                        <th>Sort</th>
-                        <th>Models</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
                 <tbody></tbody>
             </table>
         </section>
@@ -115,16 +86,6 @@
                 </select>
             </div>
             <table id="billing-table">
-                <thead>
-                    <tr>
-                        <th>Model</th>
-                        <th>Calls</th>
-                        <th>Errors</th>
-                        <th>Tokens In</th>
-                        <th>Tokens Out</th>
-                        <th>Cost USD</th>
-                    </tr>
-                </thead>
                 <tbody></tbody>
             </table>
             <div id="billing-total"></div>
@@ -136,20 +97,6 @@
                 <h2>Logs</h2>
             </div>
             <table id="logs-table">
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Model</th>
-                        <th>Route</th>
-                        <th class="numeric">Tokens In</th>
-                        <th class="numeric">Tokens Out</th>
-                        <th class="numeric">Cost ($)</th>
-                        <th class="numeric">Latency (ms)</th>
-                        <th class="center">Attempts</th>
-                        <th>Upstream</th>
-                        <th>Error</th>
-                    </tr>
-                </thead>
                 <tbody></tbody>
             </table>
             <div id="logs-pagination" class="pagination"></div>
@@ -161,13 +108,6 @@
                 <h2>Settings</h2>
             </div>
             <table id="settings-table">
-                <thead>
-                    <tr>
-                        <th>Key</th>
-                        <th>Value</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
                 <tbody></tbody>
             </table>
             <div class="form-inline">
@@ -184,13 +124,6 @@
                 <button id="btn-add-alias" class="btn-primary">Add Alias</button>
             </div>
             <table id="aliases-table">
-                <thead>
-                    <tr>
-                        <th>Glob Pattern</th>
-                        <th>Target Model</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
                 <tbody></tbody>
             </table>
         </section>

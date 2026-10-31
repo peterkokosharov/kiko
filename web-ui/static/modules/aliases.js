@@ -12,7 +12,7 @@ let aliasModal = null;
 
 export async function initAliases() {
     aliasesTable = new Table(
-        document.querySelector('#aliases-table tbody'),
+        document.querySelector('#aliases-table'),
         [
             { key: 'glob', label: 'Glob Pattern', render: r => `<code>${escapeHtml(r.glob)}</code>` },
             { key: 'target', label: 'Target Model', render: r => `<code>${escapeHtml(r.target)}</code>` }

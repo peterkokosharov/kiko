@@ -14,7 +14,7 @@ let totalEntries = 0;
 export async function initLogs() {
     // Create table
     logsTable = new Table(
-        document.querySelector('#logs-table tbody'),
+        document.querySelector('#logs-table'),
         [
             { key: 'ts', label: 'Timestamp', render: r => escapeHtml(new Date(r.ts).toLocaleString()) },
             { key: 'model', label: 'Model', render: r => `<code>${escapeHtml(r.model)}</code>` },

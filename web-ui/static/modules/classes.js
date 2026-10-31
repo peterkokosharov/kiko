@@ -12,7 +12,7 @@ let classModal = null;
 
 export async function initClasses() {
     classesTable = new Table(
-        document.querySelector('#classes-table tbody'),
+        document.querySelector('#classes-table'),
         [
             { key: 'name', label: 'Name', render: r => `<code>${escapeHtml(r.name)}</code>` },
             { key: 'keyword', label: 'Keyword', render: r => `<code>${escapeHtml(r.keyword)}</code>` },
