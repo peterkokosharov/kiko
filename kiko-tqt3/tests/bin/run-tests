@@ -1,0 +1,18 @@
+#!/bin/bash
+# kiko-tqt3 Test Run Script
+# Usage: ./run-tests
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TESTS_DIR="$(dirname "$SCRIPT_DIR")"
+
+echo "=== Running kiko-tqt3 tests ==="
+cd "$TESTS_DIR/build"
+
+if [[ ! -f "run_tests" ]]; then
+    echo "Error: Tests not built. Run ./build-tests first."
+    exit 1
+fi
+
+./run_tests

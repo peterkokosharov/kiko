@@ -1,0 +1,37 @@
+#!/bin/bash
+# kiko-tqt3 Test Build Script
+# Usage: ./build-tests
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TESTS_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$TESTS_DIR")"
+
+echo "=== Building kiko-tqt3 tests ==="
+cd "$TESTS_DIR"
+
+# Clean previous build if requested
+if [[ "$1" == "clean" ]]; then
+    echo "Cleaning previous build..."
+    rm -rf build
+fi
+
+mkdir -p build
+cd build
+
+echo "Configuring with CMake..."
+cmake .. -DCMAKE_BUILD_TYPE=Release
+
+echo "Building..."
+make -j$(nproc)
+
+echo ""
+echo "=== Build Complete ==="
+echo "Test executable: $TESTS_DIR/build/run_tests"
+echo ""
+echo "To run tests:"
+echo "  cd $TESTS_DIR/build && ./run_tests"
+echo ""
+echo "Or run individual test suite (when available):"
+echo "  ./test_state_machine"
