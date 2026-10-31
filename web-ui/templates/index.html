@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kiko-lite web-ui</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>kiko-lite web-ui</h1>
+        <div class="db-info">DB: <code id="db-path"></code></div>
+    </header>
+
+    <nav>
+        <button class="tab-btn active" data-tab="models">Models</button>
+        <button class="tab-btn" data-tab="classes">Classes</button>
+        <button class="tab-btn" data-tab="billing">Billing</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+        <button class="tab-btn" data-tab="aliases">Aliases</button>
+    </nav>
+
+    <main>
+        <!-- Models Tab -->
+        <section id="tab-models" class="tab-panel active">
+            <div class="panel-header">
+                <h2>Models</h2>
+                <button id="btn-add-model" class="btn-primary">Add Model</button>
+            </div>
+            <table id="models-table">
+                <thead>
+                    <tr>
+                        <th>Alias</th>
+                        <th>Provider</th>
+                        <th>Class</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Enabled</th>
+                        <th>Key</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <!-- Classes Tab -->
+        <section id="tab-classes" class="tab-panel">
+            <div class="panel-header">
+                <h2>Model Classes</h2>
+                <button id="btn-add-class" class="btn-primary">Add Class</button>
+            </div>
+            <table id="classes-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Keyword</th>
+                        <th>Role</th>
+                        <th>Sort</th>
+                        <th>Models</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <!-- Billing Tab -->
+        <section id="tab-billing" class="tab-panel">
+            <div class="panel-header">
+                <h2>Billing</h2>
+                <select id="billing-days">
+                    <option value="1">Last 1 day</option>
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+            <table id="billing-table">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Calls</th>
+                        <th>Errors</th>
+                        <th>Tokens In</th>
+                        <th>Tokens Out</th>
+                        <th>Cost USD</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div id="billing-total"></div>
+        </section>
+
+        <!-- Settings Tab -->
+        <section id="tab-settings" class="tab-panel">
+            <div class="panel-header">
+                <h2>Settings</h2>
+            </div>
+            <table id="settings-table">
+                <thead>
+                    <tr>
+                        <th>Key</th>
+                        <th>Value</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div class="form-inline">
+                <input type="text" id="setting-key" placeholder="Key (monthly_cap_usd, disable_billing, health_check_interval, health_no_probe)">
+                <input type="text" id="setting-value" placeholder="Value">
+                <button id="btn-add-setting" class="btn-primary">Set</button>
+            </div>
+        </section>
+
+        <!-- Aliases Tab -->
+        <section id="tab-aliases" class="tab-panel">
+            <div class="panel-header">
+                <h2>Aliases (Glob → Target)</h2>
+                <button id="btn-add-alias" class="btn-primary">Add Alias</button>
+            </div>
+            <table id="aliases-table">
+                <thead>
+                    <tr>
+                        <th>Glob Pattern</th>
+                        <th>Target Model</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+    </main>
+
+    <!-- Model Modal -->
+    <div id="modal-model" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="modal-model-title">Add Model</h3>
+            <form id="form-model">
+                <input type="hidden" id="model-alias" name="alias">
+                <div class="form-row">
+                    <label>Alias <span class="required">*</span></label>
+                    <input type="text" name="alias" id="f-alias" required>
+                </div>
+                <div class="form-row">
+                    <label>Provider <span class="required">*</span></label>
+                    <input type="text" name="provider" id="f-provider" placeholder="gemini/gemini-3.8-flash" required>
+                </div>
+                <div class="form-row">
+                    <label>API Base (optional)</label>
+                    <input type="text" name="api_base" id="f-api_base" placeholder="https://api.example.com/v1">
+                </div>
+                <div class="form-row">
+                    <label>API Key Env Name <span class="required">*</span></label>
+                    <input type="text" name="api_key_env" id="f-api_key_env" placeholder="GEMINI_API_KEY" required>
+                </div>
+                <div class="form-row">
+                    <label>Class</label>
+                    <select name="model_class" id="f-model_class">
+                        <option value="OPUS">OPUS</option>
+                        <option value="SONNET" selected>SONNET</option>
+                        <option value="HAIKU">HAIKU</option>
+                        <option value="FABLE">FABLE</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Priority</label>
+                    <input type="number" name="priority" id="f-priority" value="100" min="1">
+                </div>
+                <div class="form-row">
+                    <label>Price In ($/Mtok)</label>
+                    <input type="number" name="price_in_per_mtok" id="f-price_in_per_mtok" step="0.0001" min="0">
+                </div>
+                <div class="form-row">
+                    <label>Price Out ($/Mtok)</label>
+                    <input type="number" name="price_out_per_mtok" id="f-price_out_per_mtok" step="0.0001" min="0">
+                </div>
+                <div class="form-row">
+                    <label>Price Cache ($/Mtok)</label>
+                    <input type="number" name="price_cache_read_per_mtok" id="f-price_cache_read_per_mtok" step="0.0001" min="0">
+                </div>
+                <div class="form-row">
+                    <label>Enabled</label>
+                    <input type="checkbox" name="enabled" id="f-enabled" checked>
+                </div>
+                <div class="form-row">
+                    <label>Status</label>
+                    <select name="status" id="f-status">
+                        <option value="unknown">unknown</option>
+                        <option value="ok">ok</option>
+                        <option value="error">error</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modal-model')">Cancel</button>
+                    <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Class Modal -->
+    <div id="modal-class" class="modal hidden">
+        <div class="modal-content">
+            <h3>Add Class</h3>
+            <form id="form-class">
+                <div class="form-row">
+                    <label>Name <span class="required">*</span></label>
+                    <input type="text" name="name" id="f-class-name" placeholder="VOICE" required>
+                </div>
+                <div class="form-row">
+                    <label>Keyword <span class="required">*</span></label>
+                    <input type="text" name="keyword" id="f-class-keyword" placeholder="voice" required>
+                </div>
+                <div class="form-row">
+                    <label>Role</label>
+                    <input type="text" name="role" id="f-class-role" placeholder="Voice models">
+                </div>
+                <div class="form-row">
+                    <label>Sort</label>
+                    <input type="number" name="sort" id="f-class-sort" value="100" min="1">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modal-class')">Cancel</button>
+                    <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alias Modal -->
+    <div id="modal-alias" class="modal hidden">
+        <div class="modal-content">
+            <h3>Add Alias</h3>
+            <form id="form-alias">
+                <div class="form-row">
+                    <label>Glob Pattern <span class="required">*</span></label>
+                    <input type="text" name="glob" id="f-alias-glob" placeholder="claude-*" required>
+                </div>
+                <div class="form-row">
+                    <label>Target Model <span class="required">*</span></label>
+                    <input type="text" name="target" id="f-alias-target" placeholder="gemini-flash" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modal-alias')">Cancel</button>
+                    <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
