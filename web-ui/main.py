@@ -328,6 +328,12 @@ def api_key_status(req: kserver.Request) -> kserver.JsonResponse:
 
 # ---- Static/Template Routes --------------------------------------------------------
 
+def serve_login(req: kserver.Request) -> kserver.StreamResponse:
+    """Serve login page."""
+    html = (TEMPLATES_DIR / "login.html").read_text(encoding="utf-8")
+    return kserver.StreamResponse([html.encode("utf-8")], status=200, headers={"Content-Type": "text/html"}, content_type="text/html")
+
+
 def serve_frontend(req: kserver.Request) -> kserver.StreamResponse:
     """Serve static files from /static/ or index.html for SPA routes."""
     path = req.path
@@ -345,6 +351,12 @@ def serve_frontend(req: kserver.Request) -> kserver.StreamResponse:
             }.get(file_path.suffix, "application/octet-stream")
             return kserver.StreamResponse([file_path.read_bytes()], status=200, headers={"Content-Type": mime})
         return kserver.StreamResponse([b"Not found"], status=404, headers={"Content-Type": "text/plain"})
+
+    # Check auth for SPA routes
+    user = require_auth(req)
+    if not user:
+        # Redirect to login page
+        return kserver.StreamResponse([b""], status=302, headers={"Location": "/login"})
 
     # SPA fallback - serve index.html for all other routes
     html = (TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
@@ -386,6 +398,9 @@ def build_web_app() -> kserver.App:
     app.route("POST", "/api/auth/change-password/")(api_change_password)
     app.route("GET", "/api/auth/status")(api_auth_status)
     app.route("GET", "/api/auth/status/")(api_auth_status)
+
+    # Login page (public)
+    app.route("GET", "/login")(serve_login)
 
     # Frontend - explicit routes (kikolib.server doesn't support /* catch-all)
     app.route("GET", "/")(serve_frontend)

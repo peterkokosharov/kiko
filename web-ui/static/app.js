@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Author: Peter Kokosharov <peter.kokosharov@gmail.com>
 
-import { checkAuth, initLoginForm, initChangePasswordForm, showError } from './core/auth.js';
+import { checkAuth, initChangePasswordForm, showError } from './core/auth.js';
 import { initModels } from './modules/models.js';
 import { initClasses } from './modules/classes.js';
 import { initBilling } from './modules/billing.js';
@@ -32,14 +32,16 @@ const moduleInit = {
 };
 
 async function init() {
-    // Initialize login form
-    initLoginForm(onLoginSuccess);
+    // Initialize change password form
     initChangePasswordForm(onPasswordChanged);
 
     // Check auth status
     const authenticated = await checkAuth();
     if (authenticated) {
         showApp();
+    } else {
+        // Not authenticated - redirect to login page
+        window.location.href = '/login';
     }
 
     // Tab switching
@@ -67,16 +69,11 @@ async function init() {
     });
 }
 
-function onLoginSuccess() {
-    showApp();
-}
-
 function onPasswordChanged() {
     // Password changed, modal will close
 }
 
 function showApp() {
-    document.getElementById('modal-login').classList.add('hidden');
     document.getElementById('header-right').style.display = 'flex';
     document.body.classList.add('authenticated');
 

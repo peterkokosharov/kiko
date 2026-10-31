@@ -10,7 +10,7 @@
     <header>
         <h1>kiko-lite web-ui</h1>
         <div class="db-info">DB: <code id="db-path"></code></div>
-        <div class="header-right" id="header-right" style="display: none;">
+        <div class="header-right" id="header-right">
             <div class="user-menu">
                 <button class="user-btn" id="user-btn">
                     <span>admin</span>
@@ -32,27 +32,6 @@
         <button class="tab-btn" data-tab="settings">Settings</button>
         <button class="tab-btn" data-tab="aliases">Aliases</button>
     </nav>
-
-    <!-- Login Modal (shows first) -->
-    <div id="modal-login" class="modal">
-        <div class="modal-content login-modal">
-            <h3>kiko-lite web-ui</h3>
-            <p id="login-hint" class="hint">Default: admin / admin</p>
-            <form id="form-login" method="POST">
-                <div class="form-row">
-                    <label>Username</label>
-                    <input type="text" name="username" value="admin" required autocomplete="username">
-                </div>
-                <div class="form-row">
-                    <label>Password</label>
-                    <input type="password" name="password" value="admin" required autocomplete="current-password">
-                </div>
-                <div class="modal-actions">
-                    <button type="submit" class="btn-primary">Login</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
     <!-- Change Password Modal -->
     <div id="modal-change-pass" class="modal hidden">

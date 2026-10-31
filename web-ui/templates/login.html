@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kiko-lite web-ui - Login</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="login-page">
+        <div class="login-card">
+            <h2>kiko-lite web-ui</h2>
+            <p class="hint">Default: admin / admin</p>
+            <form id="form-login" method="POST">
+                <div class="form-row">
+                    <label>Username</label>
+                    <input type="text" name="username" value="admin" required autocomplete="username">
+                </div>
+                <div class="form-row">
+                    <label>Password</label>
+                    <input type="password" name="password" value="admin" required autocomplete="current-password">
+                </div>
+                <div class="form-row" id="login-error" style="display: none; color: var(--danger); font-size: 0.875rem;"></div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-primary">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { login, showError } from '/static/core/auth.js';
+
+        document.getElementById('form-login').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const data = Object.fromEntries(fd);
+
+            try {
+                await login(data.username, data.password);
+                window.location.href = '/';
+            } catch (err) {
+                const errorEl = document.getElementById('login-error');
+                errorEl.textContent = err.message;
+                errorEl.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
