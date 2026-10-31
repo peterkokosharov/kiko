@@ -22,6 +22,7 @@
         <button class="tab-btn" data-tab="classes">Classes</button>
         <button class="tab-btn" data-tab="billing">Billing</button>
         <button class="tab-btn" data-tab="logs">Logs</button>
+        <button class="tab-btn" data-tab="text-logs">Text Log</button>
         <button class="tab-btn" data-tab="settings">Settings</button>
         <button class="tab-btn" data-tab="aliases">Aliases</button>
     </nav>
@@ -100,6 +101,17 @@
                 <tbody></tbody>
             </table>
             <div id="logs-pagination" class="pagination"></div>
+        </section>
+
+        <!-- Text Logs Tab -->
+        <section id="tab-text-logs" class="tab-panel">
+            <div class="panel-header">
+                <h2>Text Log (LLM Requests/Responses)</h2>
+            </div>
+            <table id="text-logs-table">
+                <tbody></tbody>
+            </table>
+            <div id="text-logs-pagination" class="pagination"></div>
         </section>
 
         <!-- Settings Tab -->

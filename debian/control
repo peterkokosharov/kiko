@@ -1,0 +1,25 @@
+Source: kiko-dev
+Section: python
+Priority: optional
+Maintainer: Peter Kokosharov <peter.kokosharov@gmail.com>
+Build-Depends: debhelper-compat (= 13), python3-all, python3-setuptools
+Standards-Version: 4.6.2
+Homepage: https://github.com/peterkokosharov/kiko
+Rules-Requires-Root: no
+
+Package: kiko-dev
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}, python3
+Description: kikolib - stdlib-only library for kiko-lite proxy
+ kikolib is a small, standard-library-only Python library providing:
+  - Thread-safe HTTP/1.1 client with keep-alive pool and SSE streaming
+  - Retry policy with exponential backoff and Retry-After support
+  - Threaded HTTP server with router and systemd integration
+  - API key management via environment variables and OS keystores
+  - SQLite database abstraction for models, billing, and settings
+  - Provider adapters for OpenAI-compatible and Gemini APIs
+  - Token estimation, YAML-lite parser, and .env reader
+ .
+ This package installs the library system-wide in
+ /usr/lib/python3/dist-packages/kikolib/ so it can be imported
+ without virtual environments or pip.

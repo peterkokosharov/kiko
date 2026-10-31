@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+# SPDX-License-Identifier: MIT
+# Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+
+export DH_VERBOSE = 1
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_install:
+	python3 setup.py install --root=debian/kiko-dev --install-layout=deb

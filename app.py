@@ -146,6 +146,9 @@ class RequestResult:
     error: str | None = None  # Anthropic error type, never a secret
     usage: dict[str, int] = field(default_factory=lambda: {"input_tokens": 0, "output_tokens": 0})
     latency: float = 0.0
+    # For response logging
+    request_body: dict | None = None
+    response_body: dict | None = None
 
 
 @dataclass
@@ -311,7 +314,8 @@ class _Gateway:
                  secret: Callable[[str], str | None], on_result: Callable[[RequestResult], None] | None,
                  upstream_timeout: float, ping_interval: float,
                  gate: Callable[[], str | None] | None = None, auth: bool = True,
-                 on_health: Callable[[str, bool], None] | None = None) -> None:
+                 on_health: Callable[[str, bool], None] | None = None,
+                 on_response: Callable[[str, dict, dict], None] | None = None) -> None:
         self.gate = gate
         self.on_health = on_health  # (provider table name, worked?) after a live request or a probe
         self.cooldowns = Cooldowns()
@@ -322,6 +326,7 @@ class _Gateway:
         self.policy = policy or retry.RetryPolicy()
         self._secret = secret
         self.on_result = on_result or (lambda r: None)
+        self.on_response = on_response or (lambda rid, req, resp: None)
         self.timeout = upstream_timeout
         self.ping_interval = ping_interval
         self._keys: dict[str, tuple[str | None, float]] = {}
@@ -547,6 +552,7 @@ class _Gateway:
             logger.error("on_result hook failed", exc_info=True)
 
     def _nonstream(self, plans: list[_Plan], body: dict, res: RequestResult, calls: list[int]) -> JsonResponse:
+        res.request_body = body
         for i, plan in enumerate(plans):
             last = i == len(plans) - 1
             res.provider, res.upstream_model = plan.provider, plan.upstream_model  # the model actually used
@@ -574,7 +580,10 @@ class _Gateway:
                                                             plan.provider, plan.key)
                     raise HTTPError(st, typ, msg, hdrs)
                 self._worked(plan)
-                return self._parsed(plan, raw, body, res)
+                parsed = self._parsed(plan, raw, body, res)
+                res.response_body = json.loads(parsed.body[0].decode("utf-8")) if parsed.body else None
+                self.on_response(res.request_id, res.request_body, res.response_body)
+                return parsed
         raise HTTPError(502, "api_error", "no upstream model available")  # unreachable: plans is not empty
 
     def _parsed(self, plan: _Plan, raw: bytes, body: dict, res: RequestResult) -> JsonResponse:
@@ -722,6 +731,9 @@ class _Gateway:
                         yield sse.encode(name, ev)
                     if done:
                         completed = True
+                        # Capture response body for streaming
+                        res.response_body = {"stream": True, "content": "".join(out_text), "stop_reason": res.stop_reason, "usage": res.usage}
+                        self.on_response(res.request_id, res.request_body, res.response_body)
                         return
         finally:
             cancel.set()

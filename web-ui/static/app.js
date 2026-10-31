@@ -7,6 +7,7 @@ import { initModels } from './modules/models.js';
 import { initClasses } from './modules/classes.js';
 import { initBilling } from './modules/billing.js';
 import { initLogs } from './modules/logs.js';
+import { initTextLogs } from './modules/text_logs.js';
 import { initSettings } from './modules/settings.js';
 import { initAliases } from './modules/aliases.js';
 import { Modal } from './components/modal.js';
@@ -21,6 +22,7 @@ let modulesLoaded = {
     classes: false,
     billing: false,
     logs: false,
+    'text-logs': false,
     settings: false,
     aliases: false
 };
@@ -30,6 +32,7 @@ const moduleInit = {
     classes: initClasses,
     billing: initBilling,
     logs: initLogs,
+    'text-logs': initTextLogs,
     settings: initSettings,
     aliases: initAliases
 };

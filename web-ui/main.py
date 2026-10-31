@@ -308,6 +308,41 @@ def api_logs_count(req: kserver.Request) -> kserver.JsonResponse:
 
 
 @protected
+def api_responses(req: kserver.Request) -> kserver.JsonResponse:
+    """Get paginated LLM request/response logs from responses table, newest first."""
+    limit = int(req.query.get("limit", "30"))
+    offset = int(req.query.get("offset", "0"))
+    order = req.query.get("order", "desc")  # desc = newest first
+
+    order_sql = "DESC" if order == "desc" else "ASC"
+    with DB._read() as con:
+        rows = con.execute(
+            f"SELECT id, input_json, output_json, created_at "
+            f"FROM responses ORDER BY created_at {order_sql} LIMIT ? OFFSET ?",
+            (limit, offset)
+        ).fetchall()
+
+    responses = []
+    for r in rows:
+        responses.append({
+            "id": r["id"],
+            "input_json": r["input_json"],
+            "output_json": r["output_json"],
+            "created_at": r["created_at"]
+        })
+
+    return kserver.JsonResponse({"responses": responses})
+
+
+@protected
+def api_responses_count(req: kserver.Request) -> kserver.JsonResponse:
+    """Get total count of response entries."""
+    with DB._read() as con:
+        count = con.execute("SELECT COUNT(*) FROM responses").fetchone()[0]
+    return kserver.JsonResponse({"count": count})
+
+
+@protected
 def api_settings(req: kserver.Request) -> kserver.JsonResponse:
     settings = DB.settings()
     return kserver.JsonResponse({"settings": settings})
@@ -460,6 +495,10 @@ def build_web_app() -> kserver.App:
     # Logs API routes (with pagination)
     app.route("GET", "/api/logs")(api_logs)
     app.route("GET", "/api/logs/count")(api_logs_count)
+
+    # Responses (Text Logs) API routes
+    app.route("GET", "/api/responses")(api_responses)
+    app.route("GET", "/api/responses/count")(api_responses_count)
 
     app.route("GET", "/api/settings")(api_settings)
     app.route("POST", "/api/settings")(api_setting_post)

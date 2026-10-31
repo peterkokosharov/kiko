@@ -1,0 +1,6 @@
+kiko-dev (0.1.0-1) unstable; urgency=medium
+
+  * Initial release of kikolib as system package kiko-dev
+  * Provides stdlib-only library for kiko-lite proxy
+
+ -- Peter Kokosharov <peter.kokosharov@gmail.com>  Mon, 31 Oct 2026 20:00:00 +0200

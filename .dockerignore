@@ -1,0 +1,22 @@
+# Ignore build artifacts and VCS
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+build/
+dist/
+*.egg-info/
+.deb
+*.deb
+*.changes
+*.buildinfo
+*.dsc
+# Ignore test and docs
+tests/
+docs/
+# Ignore kiko-tqt3 (separate package)
+kiko-tqt3/
+# Ignore web-ui
+web-ui/
