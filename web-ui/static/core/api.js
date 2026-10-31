@@ -1,18 +1,8 @@
-// core/api.js - Fetch wrapper with auth handling
+// core/api.js - Fetch wrapper with auth handling (cookie-based)
 // SPDX-License-Identifier: MIT
 // Author: Peter Kokosharov <peter.kokosharov@gmail.com>
 
 const API_BASE = '/api';
-
-let authToken = null;
-
-export function setAuthToken(token) {
-    authToken = token;
-}
-
-export function clearAuthToken() {
-    authToken = null;
-}
 
 export async function apiRequest(path, options = {}) {
     const headers = {
@@ -20,10 +10,7 @@ export async function apiRequest(path, options = {}) {
         ...options.headers
     };
 
-    if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-    }
-
+    // Use cookie-based auth (credentials: 'include') - no Bearer token needed
     const res = await fetch(`${API_BASE}${path}`, {
         ...options,
         headers,
@@ -31,7 +18,6 @@ export async function apiRequest(path, options = {}) {
     });
 
     if (res.status === 401) {
-        clearAuthToken();
         window.dispatchEvent(new CustomEvent('auth:logout'));
         throw new Error('unauthorized');
     }

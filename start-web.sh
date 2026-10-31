@@ -5,6 +5,7 @@
 # Or add alias: alias kiko-web='~/kiko_lite/start-web.sh'
 #
 # Run from ANY directory - it finds its own location.
+# Config is loaded from ~/.kiko/kiko.toml (webui.host, webui.port)
 
 me="$0"
 if real=$(readlink -f "$me" 2>/dev/null) && [ -n "$real" ]; then me="$real"; fi

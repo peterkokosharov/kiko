@@ -6,6 +6,7 @@ import { checkAuth, initChangePasswordForm, showError } from './core/auth.js';
 import { initModels } from './modules/models.js';
 import { initClasses } from './modules/classes.js';
 import { initBilling } from './modules/billing.js';
+import { initLogs } from './modules/logs.js';
 import { initSettings } from './modules/settings.js';
 import { initAliases } from './modules/aliases.js';
 import { Modal } from './components/modal.js';
@@ -19,6 +20,7 @@ let modulesLoaded = {
     models: false,
     classes: false,
     billing: false,
+    logs: false,
     settings: false,
     aliases: false
 };
@@ -27,6 +29,7 @@ const moduleInit = {
     models: initModels,
     classes: initClasses,
     billing: initBilling,
+    logs: initLogs,
     settings: initSettings,
     aliases: initAliases
 };

@@ -19,9 +19,11 @@ sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(BASE_DIR / "kikolib"))
 
 from kikolib import server as kserver
+from kikolib import config as kconfig
 from kiko_lite.db import Database, default_path
 from kiko_lite.resolver import build_db_app
 
+# Load config from ~/.kiko/kiko.toml
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger("kiko.webui")
 
@@ -29,8 +31,12 @@ WEBUI_DIR = Path(__file__).parent
 TEMPLATES_DIR = WEBUI_DIR / "templates"
 STATIC_DIR = WEBUI_DIR / "static"
 
-DB_PATH = default_path()
+DB_PATH = kconfig.get_database_path()
 DB = Database(DB_PATH)
+
+# Web UI port from config
+WEBUI_HOST = kconfig.get_webui_host()
+WEBUI_PORT = kconfig.get_webui_port()
 
 # ---- Auth System (Tomcat-style) ----------------------------------------------------
 
@@ -257,6 +263,51 @@ def api_billing(req: kserver.Request) -> kserver.JsonResponse:
 
 
 @protected
+def api_logs(req: kserver.Request) -> kserver.JsonResponse:
+    """Get paginated logs from billing table, newest first."""
+    limit = int(req.query.get("limit", "30"))
+    offset = int(req.query.get("offset", "0"))
+    order = req.query.get("order", "desc")  # desc = newest first
+
+    # Get raw billing data with all fields
+    with DB._read() as con:
+        # Build query with all billing fields
+        order_sql = "DESC" if order == "desc" else "ASC"
+        rows = con.execute(
+            f"SELECT id, model, tokens_in, tokens_out, cost_usd, ts, route, "
+            f"attempts, latency_ms, upstream_model, error "
+            f"FROM billing ORDER BY ts {order_sql} LIMIT ? OFFSET ?",
+            (limit, offset)
+        ).fetchall()
+
+    logs = []
+    for r in rows:
+        logs.append({
+            "id": r["id"],
+            "model": r["model"],
+            "tokens_in": r["tokens_in"],
+            "tokens_out": r["tokens_out"],
+            "cost_usd": r["cost_usd"],
+            "ts": r["ts"],
+            "route": r["route"],
+            "attempts": r["attempts"],
+            "latency_ms": r["latency_ms"],
+            "upstream_model": r["upstream_model"],
+            "error": r["error"]
+        })
+
+    return kserver.JsonResponse({"logs": logs})
+
+
+@protected
+def api_logs_count(req: kserver.Request) -> kserver.JsonResponse:
+    """Get total count of log entries."""
+    with DB._read() as con:
+        count = con.execute("SELECT COUNT(*) FROM billing").fetchone()[0]
+    return kserver.JsonResponse({"count": count})
+
+
+@protected
 def api_settings(req: kserver.Request) -> kserver.JsonResponse:
     settings = DB.settings()
     return kserver.JsonResponse({"settings": settings})
@@ -380,6 +431,10 @@ def build_web_app() -> kserver.App:
 
     app.route("GET", "/api/billing")(api_billing)
 
+    # Logs API routes (with pagination)
+    app.route("GET", "/api/logs")(api_logs)
+    app.route("GET", "/api/logs/count")(api_logs_count)
+
     app.route("GET", "/api/settings")(api_settings)
     app.route("POST", "/api/settings")(api_setting_post)
 
@@ -413,8 +468,8 @@ def build_web_app() -> kserver.App:
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=4008)
+    parser.add_argument("--host", default=WEBUI_HOST)
+    parser.add_argument("--port", type=int, default=WEBUI_PORT)
     args = parser.parse_args()
 
     app = build_web_app()
