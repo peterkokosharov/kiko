@@ -369,6 +369,10 @@ class Database:
         with self._write() as con:
             return con.execute("DELETE FROM models WHERE alias=?", (alias,)).rowcount > 0
 
+    def delete_class(self, name: str) -> bool:
+        with self._write() as con:
+            return con.execute("DELETE FROM model_classes WHERE name=?", (name,)).rowcount > 0
+
     # -- aliases / settings --
     def _has_table(self, con: sqlite3.Connection, name: str) -> bool:
         return con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None

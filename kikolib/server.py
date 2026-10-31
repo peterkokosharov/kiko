@@ -125,11 +125,29 @@ class App:
         self._after: list[Callable[[Request, int, float], None]] = []
 
     def route(self, method: str, path: str) -> Callable[[Handler], Handler]:
-        """Decorator: exact path, or ``{name}`` segments (``/v1/models/{id}:generateContent``)."""
-        pattern = "".join(
-            f"(?P<{p[1:-1]}>[^/]+)" if p.startswith("{") and p.endswith("}") else re.escape(p)
-            for p in re.split(r"(\{[A-Za-z_]\w*\})", path) if p
-        )
+        """Decorator: exact path, or ``{name}`` segments (``/v1/models/{id}:generateContent``).
+
+        Supports ``{name}`` (matches one segment: [^/]+) and ``{name:path}`` (matches rest: .+).
+        """
+        # Split keeping braces, but also handle {name:pattern} syntax
+        segments = re.split(r"(\{[A-Za-z_]\w*(?::[^}]+)?\})", path)
+        pattern = ""
+        for p in segments:
+            if not p:
+                continue
+            if p.startswith("{") and p.endswith("}"):
+                inner = p[1:-1]
+                if ":" in inner:
+                    name, pat = inner.split(":", 1)
+                    if pat == "path":
+                        pattern += f"(?P<{name}>.+)"
+                    else:
+                        # Custom pattern - use as-is
+                        pattern += f"(?P<{name}>{pat})"
+                else:
+                    pattern += f"(?P<{inner}>[^/]+)"
+            else:
+                pattern += re.escape(p)
         rx = re.compile(pattern + r"\Z")
 
         def deco(fn: Handler) -> Handler:

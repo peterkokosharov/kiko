@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/petark/**)",
+      "Bash(PYTHONPATH=/home/petark/kiko_lite python3 -c ' *)",
+      "Bash(cd *)",
+      "Bash(mkdir *)"
+    ]
+  }
+}

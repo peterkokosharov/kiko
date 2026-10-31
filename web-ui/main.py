@@ -5,13 +5,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
+import secrets
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add kiko_lite and kikolib to path
+BASE_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(BASE_DIR))
+sys.path.insert(0, str(BASE_DIR / "kikolib"))
 
 from kikolib import server as kserver
 from kiko_lite.db import Database, default_path
@@ -27,14 +32,153 @@ STATIC_DIR = WEBUI_DIR / "static"
 DB_PATH = default_path()
 DB = Database(DB_PATH)
 
+# ---- Auth System (Tomcat-style) ----------------------------------------------------
+
+SESSIONS: dict[str, dict] = {}  # token -> {"user": "admin", "created": time}
+SESSION_TTL = 24 * 3600  # 24 hours
+
+# Password hash storage (in DB settings)
+PASSWORD_KEY = "webui_admin_password_hash"
+SALT_KEY = "webui_admin_salt"
+
+def hash_password(password: str, salt: str) -> str:
+    return hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000).hex()
+
+def verify_password(password: str, salt: str, stored_hash: str) -> bool:
+    return hash_password(password, salt) == stored_hash
+
+def get_or_create_credentials():
+    """Get or create default admin/admin credentials."""
+    settings = DB.settings()
+    salt = settings.get(SALT_KEY)
+    stored_hash = settings.get(PASSWORD_KEY)
+
+    if not salt or not stored_hash:
+        # Create default admin/admin
+        salt = secrets.token_hex(16)
+        default_hash = hash_password("admin", salt)
+        DB.set_setting(SALT_KEY, salt)
+        DB.set_setting(PASSWORD_KEY, default_hash)
+        return salt, default_hash, True  # True = default password
+    return salt, stored_hash, False
+
+def create_session(username: str) -> str:
+    token = secrets.token_urlsafe(32)
+    SESSIONS[token] = {"user": username, "created": __import__("time").time()}
+    return token
+
+def validate_session(token: str) -> str | None:
+    if not token or token not in SESSIONS:
+        return None
+    session = SESSIONS[token]
+    if __import__("time").time() - session["created"] > SESSION_TTL:
+        del SESSIONS[token]
+        return None
+    return session["user"]
+
+def require_auth(req: kserver.Request) -> str | None:
+    """Check session cookie or Authorization header. Return username or None."""
+    # Check cookie
+    cookie = req.headers.get("cookie", "")
+    for part in cookie.split(";"):
+        part = part.strip()
+        if part.startswith("session="):
+            token = part[8:]
+            user = validate_session(token)
+            if user:
+                return user
+    # Check Authorization header (Bearer token)
+    auth = req.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        token = auth[7:].strip()
+        user = validate_session(token)
+        if user:
+            return user
+    return None
+
+SALT, STORED_HASH, IS_DEFAULT = get_or_create_credentials()
+
+
+# ---- Auth Routes -------------------------------------------------------------------
+
+def api_login(req: kserver.Request) -> kserver.JsonResponse:
+    data = req.json()
+    username = data.get("username", "")
+    password = data.get("password", "")
+
+    if username != "admin":
+        return kserver.JsonResponse({"error": "invalid credentials"}, status=401)
+    if not verify_password(password, SALT, STORED_HASH):
+        return kserver.JsonResponse({"error": "invalid credentials"}, status=401)
+
+    token = create_session(username)
+    resp = kserver.JsonResponse({"ok": True, "token": token, "default_password": IS_DEFAULT})
+    resp.headers["Set-Cookie"] = f"session={token}; HttpOnly; Path=/; SameSite=Lax; Max-Age={SESSION_TTL}"
+    return resp
+
+
+def api_logout(req: kserver.Request) -> kserver.JsonResponse:
+    cookie = req.headers.get("cookie", "")
+    for part in cookie.split(";"):
+        part = part.strip()
+        if part.startswith("session="):
+            token = part[8:]
+            SESSIONS.pop(token, None)
+            break
+    resp = kserver.JsonResponse({"ok": True})
+    resp.headers["Set-Cookie"] = "session=; HttpOnly; Path=/; Max-Age=0"
+    return resp
+
+
+def api_change_password(req: kserver.Request) -> kserver.JsonResponse:
+    global STORED_HASH
+    user = require_auth(req)
+    if not user:
+        return kserver.JsonResponse({"error": "unauthorized"}, status=401)
+
+    data = req.json()
+    current = data.get("current_password", "")
+    new_pass = data.get("new_password", "")
+
+    if not verify_password(current, SALT, STORED_HASH):
+        return kserver.JsonResponse({"error": "current password incorrect"}, status=400)
+    if len(new_pass) < 6:
+        return kserver.JsonResponse({"error": "password must be at least 6 characters"}, status=400)
+
+    STORED_HASH = hash_password(new_pass, SALT)
+    DB.set_setting(PASSWORD_KEY, STORED_HASH)
+
+    return kserver.JsonResponse({"ok": True, "message": "password changed"})
+
+
+def api_auth_status(req: kserver.Request) -> kserver.JsonResponse:
+    user = require_auth(req)
+    if user:
+        return kserver.JsonResponse({"authenticated": True, "user": user, "default_password": IS_DEFAULT})
+    return kserver.JsonResponse({"authenticated": False})
+
+
+# ---- Auth Decorator -----------------------------------------------------------------
+
+def protected(fn):
+    """Decorator to require auth on API routes."""
+    def wrapper(req: kserver.Request):
+        user = require_auth(req)
+        if not user:
+            return kserver.JsonResponse({"error": "unauthorized"}, status=401)
+        return fn(req)
+    return wrapper
+
 
 # ---- API Routes --------------------------------------------------------------------
 
+@protected
 def api_models(req: kserver.Request) -> kserver.JsonResponse:
     models = DB.models()
     return kserver.JsonResponse({"models": [dict(m) for m in models]})
 
 
+@protected
 def api_model_get(req: kserver.Request) -> kserver.JsonResponse:
     alias = req.path.split("/")[-1]
     row = DB.get_model(alias)
@@ -43,6 +187,7 @@ def api_model_get(req: kserver.Request) -> kserver.JsonResponse:
     return kserver.JsonResponse(dict(row))
 
 
+@protected
 def api_model_post(req: kserver.Request) -> kserver.JsonResponse:
     data = req.json()
     alias = data.pop("alias", None)
@@ -67,6 +212,7 @@ def api_model_post(req: kserver.Request) -> kserver.JsonResponse:
     return kserver.JsonResponse({"alias": alias, "created": new})
 
 
+@protected
 def api_model_delete(req: kserver.Request) -> kserver.JsonResponse:
     alias = req.path.split("/")[-1]
     if not DB.delete_model(alias):
@@ -74,11 +220,13 @@ def api_model_delete(req: kserver.Request) -> kserver.JsonResponse:
     return kserver.JsonResponse({"deleted": alias})
 
 
+@protected
 def api_classes(req: kserver.Request) -> kserver.JsonResponse:
     classes = DB.classes()
     return kserver.JsonResponse({"classes": classes})
 
 
+@protected
 def api_class_post(req: kserver.Request) -> kserver.JsonResponse:
     data = req.json()
     name = data.get("name", "").upper()
@@ -93,6 +241,7 @@ def api_class_post(req: kserver.Request) -> kserver.JsonResponse:
     return kserver.JsonResponse({"name": name, "keyword": keyword})
 
 
+@protected
 def api_class_delete(req: kserver.Request) -> kserver.JsonResponse:
     name = req.path.split("/")[-1].upper()
     if not DB.delete_class(name):
@@ -100,17 +249,20 @@ def api_class_delete(req: kserver.Request) -> kserver.JsonResponse:
     return kserver.JsonResponse({"deleted": name})
 
 
+@protected
 def api_billing(req: kserver.Request) -> kserver.JsonResponse:
     days = int(req.query.get("days", "30"))
     rows = DB.billing_summary(days)
     return kserver.JsonResponse({"days": days, "rows": rows})
 
 
+@protected
 def api_settings(req: kserver.Request) -> kserver.JsonResponse:
     settings = DB.settings()
     return kserver.JsonResponse({"settings": settings})
 
 
+@protected
 def api_setting_post(req: kserver.Request) -> kserver.JsonResponse:
     data = req.json()
     key = data.get("key")
@@ -121,11 +273,13 @@ def api_setting_post(req: kserver.Request) -> kserver.JsonResponse:
     return kserver.JsonResponse({"key": key, "value": str(value)})
 
 
+@protected
 def api_aliases(req: kserver.Request) -> kserver.JsonResponse:
     aliases = DB.aliases()
     return kserver.JsonResponse({"aliases": aliases})
 
 
+@protected
 def api_alias_post(req: kserver.Request) -> kserver.JsonResponse:
     data = req.json()
     glob = data.get("glob")
@@ -136,12 +290,14 @@ def api_alias_post(req: kserver.Request) -> kserver.JsonResponse:
     return kserver.JsonResponse({"glob": glob, "target": target})
 
 
+@protected
 def api_alias_delete(req: kserver.Request) -> kserver.JsonResponse:
     glob = req.path.split("/")[-1]
     DB.delete_alias(glob)
     return kserver.JsonResponse({"deleted": glob})
 
 
+@protected
 def api_key_status(req: kserver.Request) -> kserver.JsonResponse:
     """Check where a key name is found (env, dotenv, store) - never returns the value."""
     from kiko_lite.cli import _dotenv_values, _key_source
@@ -172,26 +328,27 @@ def api_key_status(req: kserver.Request) -> kserver.JsonResponse:
 
 # ---- Static/Template Routes --------------------------------------------------------
 
-def serve_index(req: kserver.Request) -> kserver.StreamResponse:
-    html = (TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
-    return kserver.StreamResponse([html.encode("utf-8")], status=200, headers={"Content-Type": "text/html"}, content_type="text/html")
+def serve_frontend(req: kserver.Request) -> kserver.StreamResponse:
+    """Serve static files from /static/ or index.html for SPA routes."""
+    path = req.path
 
-
-def serve_static(req: kserver.Request) -> kserver.StreamResponse:
-    path = req.path[len("/static/"):]
-    file_path = STATIC_DIR / path
-    if not file_path.exists() or file_path.is_dir():
+    # Serve static files
+    if path.startswith("/static/"):
+        file_path = STATIC_DIR / path[len("/static/"):]
+        if file_path.exists() and not file_path.is_dir():
+            mime = {
+                ".js": "application/javascript",
+                ".css": "text/css",
+                ".html": "text/html",
+                ".png": "image/png",
+                ".ico": "image/x-icon",
+            }.get(file_path.suffix, "application/octet-stream")
+            return kserver.StreamResponse([file_path.read_bytes()], status=200, headers={"Content-Type": mime})
         return kserver.StreamResponse([b"Not found"], status=404, headers={"Content-Type": "text/plain"})
 
-    mime = {
-        ".js": "application/javascript",
-        ".css": "text/css",
-        ".html": "text/html",
-        ".png": "image/png",
-        ".ico": "image/x-icon",
-    }.get(file_path.suffix, "application/octet-stream")
-
-    return kserver.StreamResponse([file_path.read_bytes()], status=200, headers={"Content-Type": mime})
+    # SPA fallback - serve index.html for all other routes
+    html = (TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
+    return kserver.StreamResponse([html.encode("utf-8")], status=200, headers={"Content-Type": "text/html"}, content_type="text/html")
 
 
 # ---- Build App ---------------------------------------------------------------------
@@ -220,9 +377,16 @@ def build_web_app() -> kserver.App:
 
     app.route("GET", "/api/key-status/{alias}")(api_key_status)
 
-    # Frontend
-    app.route("GET", "/")(serve_index)
-    app.route("GET", "/{path:path}")(serve_static)
+    # Auth routes (public)
+    app.route("POST", "/api/auth/login")(api_login)
+    app.route("POST", "/api/auth/logout")(api_logout)
+    app.route("POST", "/api/auth/change-password")(api_change_password)
+    app.route("GET", "/api/auth/status")(api_auth_status)
+
+    # Frontend - explicit routes (kikolib.server doesn't support /* catch-all)
+    app.route("GET", "/")(serve_frontend)
+    app.route("GET", "/static/{path:path}")(serve_frontend)
+    app.route("GET", "/{path:path}")(serve_frontend)  # SPA fallback
 
     return app
 
