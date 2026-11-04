@@ -15,6 +15,7 @@
 #include <tqlabel.h>
 #include <tqtimer.h>
 #include <tqevent.h>
+#include <tqstringlist.h>
 #include "kiko_process.h"
 
 class KikoLogPanel;
@@ -67,9 +68,10 @@ private:
     TQLabel* m_iconLabel;
 
     // Log panel (billing/usage table)
-    KikoLogPanel* m_logPanel;
+    KikoLogPanel* m_logPanel = nullptr;
 
     // Config
+    TQStringList m_logBuffer;
     TQString m_configPath;
     TQString m_binaryPath;
     int m_port;

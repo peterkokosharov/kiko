@@ -12,6 +12,7 @@
 #include <tqtable.h>
 #include <tqpushbutton.h>
 #include <tqcombobox.h>
+#include <tqcheckbox.h>
 #include <tqlabel.h>
 #include <tqlayout.h>
 #include <tqheader.h>

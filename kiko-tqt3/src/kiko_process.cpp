@@ -63,7 +63,8 @@ void KikoProcess::setState(State newState)
 bool KikoProcess::runSystemctl(const char* action, TQString& errorMsg)
 {
     // Use synchronous systemctl call
-    FILE* pipe = popen(TQString("systemctl --user %1 %2 2>&1").arg(action).arg(m_serviceName).latin1(), "r");
+    TQString cmd = TQString("systemctl --user %1 %2 2>&1").arg(action).arg(m_serviceName);
+    FILE* pipe = popen(cmd.latin1(), "r");
     if (pipe) {
         char buffer[256];
         TQString output;
@@ -162,7 +163,8 @@ void KikoProcess::killProcess()
 void KikoProcess::checkServiceStatus()
 {
     // Use synchronous shell command to check status (like litellm-try)
-    FILE* pipe = popen("systemctl --user is-active kiko 2>/dev/null", "r");
+    TQString cmd = TQString("systemctl --user is-active %1 2>/dev/null").arg(m_serviceName);
+    FILE* pipe = popen(cmd.latin1(), "r");
     if (pipe) {
         char buffer[128];
         if (fgets(buffer, sizeof(buffer), pipe)) {

@@ -65,7 +65,12 @@ void KikoLogPanel::setupUI()
     TQStringList headers;
     headers << "Timestamp" << "Model" << "Route" << "Tokens In" << "Tokens Out"
             << "Cost ($)" << "Latency (ms)" << "Attempts" << "Upstream" << "Error";
-    m_table->setHorizontalHeaderLabels(headers);
+    TQHeader* hdr = m_table->horizontalHeader();
+    if (hdr) {
+        for (int i = 0; i < headers.count(); ++i) {
+            hdr->setLabel(i, headers[i]);
+        }
+    }
 
     // Set column widths
     m_table->setColumnWidth(COL_TIMESTAMP, 140);
@@ -290,60 +295,46 @@ void KikoLogPanel::updateTable()
         const LogEntry& e = m_currentPageData[row];
 
         // Timestamp
-        TQTableItem* item = new TQTableItem(m_table, formatTimestamp(e.ts));
-        item->setAlignment(TQt::AlignLeft | TQt::AlignVCenter);
+        TQTableItem* item = new TQTableItem(m_table, TQTableItem::Never, formatTimestamp(e.ts));
         m_table->setItem(row, COL_TIMESTAMP, item);
 
         // Model
-        item = new TQTableItem(m_table, TQString::fromUtf8(e.model.c_str()));
-        item->setAlignment(TQt::AlignLeft | TQt::AlignVCenter);
+        item = new TQTableItem(m_table, TQTableItem::Never, TQString::fromUtf8(e.model.c_str()));
         m_table->setItem(row, COL_MODEL, item);
 
         // Route
-        item = new TQTableItem(m_table, TQString::fromUtf8(e.route.c_str()));
-        item->setAlignment(TQt::AlignLeft | TQt::AlignVCenter);
+        item = new TQTableItem(m_table, TQTableItem::Never, TQString::fromUtf8(e.route.c_str()));
         m_table->setItem(row, COL_ROUTE, item);
 
         // Tokens In
-        item = new TQTableItem(m_table, formatNumber(e.tokens_in));
-        item->setAlignment(TQt::AlignRight | TQt::AlignVCenter);
+        item = new TQTableItem(m_table, TQTableItem::Never, formatNumber(e.tokens_in));
         m_table->setItem(row, COL_TOKENS_IN, item);
 
         // Tokens Out
-        item = new TQTableItem(m_table, formatNumber(e.tokens_out));
-        item->setAlignment(TQt::AlignRight | TQt::AlignVCenter);
+        item = new TQTableItem(m_table, TQTableItem::Never, formatNumber(e.tokens_out));
         m_table->setItem(row, COL_TOKENS_OUT, item);
 
         // Cost
-        item = new TQTableItem(m_table, formatCost(e.cost_usd));
-        item->setAlignment(TQt::AlignRight | TQt::AlignVCenter);
+        item = new TQTableItem(m_table, TQTableItem::Never, formatCost(e.cost_usd));
         m_table->setItem(row, COL_COST, item);
 
         // Latency
         TQString latencyStr = (e.latency_ms > 0) ? formatNumber(e.latency_ms) : "-";
-        item = new TQTableItem(m_table, latencyStr);
-        item->setAlignment(TQt::AlignRight | TQt::AlignVCenter);
+        item = new TQTableItem(m_table, TQTableItem::Never, latencyStr);
         m_table->setItem(row, COL_LATENCY, item);
 
         // Attempts
         TQString attemptsStr = (e.attempts > 0) ? formatNumber(e.attempts) : "-";
-        item = new TQTableItem(m_table, attemptsStr);
-        item->setAlignment(TQt::AlignCenter | TQt::AlignVCenter);
+        item = new TQTableItem(m_table, TQTableItem::Never, attemptsStr);
         m_table->setItem(row, COL_ATTEMPTS, item);
 
         // Upstream Model
-        item = new TQTableItem(m_table, TQString::fromUtf8(e.upstream_model.c_str()));
-        item->setAlignment(TQt::AlignLeft | TQt::AlignVCenter);
+        item = new TQTableItem(m_table, TQTableItem::Never, TQString::fromUtf8(e.upstream_model.c_str()));
         m_table->setItem(row, COL_UPSTREAM, item);
 
         // Error
         TQString errorStr = e.error.empty() ? "-" : TQString::fromUtf8(e.error.c_str());
-        item = new TQTableItem(m_table, errorStr);
-        item->setAlignment(TQt::AlignLeft | TQt::AlignVCenter);
-        if (!e.error.empty()) {
-            // Highlight errors in red
-            item->setTextColor(TQt::red);
-        }
+        item = new TQTableItem(m_table, TQTableItem::Never, errorStr);
         m_table->setItem(row, COL_ERROR, item);
     }
 }
@@ -396,4 +387,3 @@ TQString KikoLogPanel::formatNumber(int num)
     return TQString(buf);
 }
 
-#include "moc_kiko_log_panel.cpp"

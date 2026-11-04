@@ -41,21 +41,28 @@ KikoApplet::KikoApplet(const TQString& configFile, TQWidget* parent)
     , m_menu(new TQPopupMenu(this))
     , m_tooltipTimer(new TQTimer(this))
     , m_iconLabel(new TQLabel(this))
+    , m_logPanel(nullptr)
     , m_port(4000)
 {
     // Load config
     setupConfig();
 
-    // Load icons from TDE icon system
-    m_iconRunning   = TDEGlobal::iconLoader()->loadIconSet("Kiko_running", TDEIcon::Panel);
-    m_iconStopped   = TDEGlobal::iconLoader()->loadIconSet("Kiko_stopped", TDEIcon::Panel);
-    m_iconError     = TDEGlobal::iconLoader()->loadIconSet("Kiko_error", TDEIcon::Panel);
-    m_iconStarting  = TDEGlobal::iconLoader()->loadIconSet("Kiko_idle", TDEIcon::Panel);
-    m_iconIdle      = m_iconStopped;  // fallback
+    // Load icons from TDE icon system (null-safe: iconLoader may be 0 before TDE app is ready)
+    TDEIconLoader* iconLoader = TDEGlobal::iconLoader();
+    if (iconLoader) {
+        m_iconRunning   = iconLoader->loadIconSet("Kiko_running", TDEIcon::Panel);
+        m_iconStopped   = iconLoader->loadIconSet("Kiko_stopped", TDEIcon::Panel);
+        m_iconError     = iconLoader->loadIconSet("Kiko_error", TDEIcon::Panel);
+        m_iconStarting  = iconLoader->loadIconSet("Kiko_idle", TDEIcon::Panel);
+    }
+    m_iconIdle = m_iconStopped;  // fallback
 
-    // Fallback: if theme icons not found, try loading from installed path
+    // Fallback: if theme icons not found or iconLoader is null, try loading from installed path
     if (m_iconRunning.isNull()) {
-        TQString iconDir = TDEGlobal::dirs()->findResource("icon", "hicolor/22x22/apps/");
+        TQString iconDir;
+        if (TDEGlobal::dirs()) {
+            iconDir = TDEGlobal::dirs()->findResource("icon", "hicolor/22x22/apps/");
+        }
         if (!iconDir.isEmpty()) {
             m_iconRunning   = TQIconSet(TQPixmap(iconDir + "Kiko_running.png"));
             m_iconStopped   = TQIconSet(TQPixmap(iconDir + "Kiko_stopped.png"));
@@ -75,7 +82,9 @@ KikoApplet::KikoApplet(const TQString& configFile, TQWidget* parent)
     layout->setMargin(0);
     layout->setSpacing(0);
     layout->addWidget(m_iconLabel);
-    m_iconLabel->setPixmap(m_iconStopped.pixmap(TQIconSet::Small, TQIconSet::Normal));
+    if (m_iconLabel && !m_iconStopped.isNull()) {
+        m_iconLabel->setPixmap(m_iconStopped.pixmap(TQIconSet::Small, TQIconSet::Normal));
+    }
     // No setLayout() needed in Qt3 - parent constructor sets it
 
     // Process signals - use unscoped enum name as MOC expects
@@ -95,6 +104,7 @@ KikoApplet::KikoApplet(const TQString& configFile, TQWidget* parent)
     m_process->setConfigPath(m_configPath);
     m_process->setPort(m_port);
     m_process->setKikoBinary(m_binaryPath);
+    m_process->setServiceName("kiko-proxy");
 
     // Initial state
     updateIcon();
@@ -238,22 +248,35 @@ void KikoApplet::onProcessError(const TQString& msg) {
 }
 
 void KikoApplet::updateIcon() {
+    if (!m_iconLabel) {
+        return;
+    }
     TQPixmap pix;
     switch (m_process->state()) {
         case KikoProcess::Running:
-            pix = m_iconRunning.pixmap(TQIconSet::Small, TQIconSet::Normal);
+            if (!m_iconRunning.isNull()) {
+                pix = m_iconRunning.pixmap(TQIconSet::Small, TQIconSet::Normal);
+            }
             break;
         case KikoProcess::Starting:
-            pix = m_iconStarting.pixmap(TQIconSet::Small, TQIconSet::Normal);
+            if (!m_iconStarting.isNull()) {
+                pix = m_iconStarting.pixmap(TQIconSet::Small, TQIconSet::Normal);
+            }
             break;
         case KikoProcess::Error:
-            pix = m_iconError.pixmap(TQIconSet::Small, TQIconSet::Normal);
+            if (!m_iconError.isNull()) {
+                pix = m_iconError.pixmap(TQIconSet::Small, TQIconSet::Normal);
+            }
             break;
         case KikoProcess::Stopping:
-            pix = m_iconIdle.pixmap(TQIconSet::Small, TQIconSet::Normal);
+            if (!m_iconIdle.isNull()) {
+                pix = m_iconIdle.pixmap(TQIconSet::Small, TQIconSet::Normal);
+            }
             break;
         default:
-            pix = m_iconStopped.pixmap(TQIconSet::Small, TQIconSet::Normal);
+            if (!m_iconStopped.isNull()) {
+                pix = m_iconStopped.pixmap(TQIconSet::Small, TQIconSet::Normal);
+            }
             break;
     }
     m_iconLabel->setPixmap(pix);
