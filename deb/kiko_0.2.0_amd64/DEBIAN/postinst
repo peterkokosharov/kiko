@@ -1,0 +1,8 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
+# LLM: Anthropic Sonnet
+set -e
+# Install the Python wheel
+pip install /usr/share/kiko/kiko-0.2.0-py3-none-any.whl --quiet
+echo "KIKO installed. Log in as your user and enable kiko.service via the systemd user session (see install.sh)."

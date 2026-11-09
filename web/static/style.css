@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com> */
+/* LLM: Anthropic Opus */
+:root { --bg: #fff; --fg: #1d2330; --muted: #667085; --line: #d9dee7; --card: #f6f8fb; --accent: #2457c5;
+        --danger: #b42318; --ok: #067647; color-scheme: light dark; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14171f; --fg: #e6e9f0; --muted: #98a2b3; --line: #2e3544; --card: #1c212c; --accent: #7aa2f7;
+          --danger: #f97066; --ok: #47cd89; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; padding: .6rem 1.2rem;
+         background: var(--card); border-bottom: 1px solid var(--line); }
+nav { display: flex; flex-wrap: wrap; gap: .8rem; flex: 1; }
+nav a[aria-current] { font-weight: 700; text-decoration: none; color: var(--fg); }
+main { max-width: 1200px; margin: 0 auto; padding: 1rem 1.2rem 3rem; }
+h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; margin-top: 2rem; }
+a { color: var(--accent); }
+table { width: 100%; border-collapse: collapse; margin: .8rem 0; }
+th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: .85rem; }
+pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: .8rem; }
+#live { max-height: 16rem; overflow: auto; background: var(--card); padding: .5rem; }
+code, .badge { font-family: ui-monospace, monospace; font-size: .85rem; }
+.badge { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 0 .35rem; }
+.muted { color: var(--muted); }
+form p { display: grid; grid-template-columns: 16rem 1fr; gap: .5rem; align-items: center; max-width: 52rem; margin: .4rem 0; }
+form.inline { display: inline; }
+input, select, button, .button { font: inherit; padding: .35rem .6rem; border: 1px solid var(--line); border-radius: 6px;
+                                 background: var(--bg); color: var(--fg); }
+button, a.button { background: var(--accent); color: var(--bg); border-color: var(--accent); cursor: pointer;
+                   text-decoration: none; }
+button.secondary { background: var(--card); color: var(--fg); border-color: var(--line); }
+button.danger { background: var(--bg); color: var(--danger); border-color: var(--danger); }
+.flash { padding: .5rem .8rem; border-radius: 6px; border: 1px solid var(--line); background: var(--card); }
+.flash.ok { border-color: var(--ok); } .flash.error { border-color: var(--danger); }
+.pager { color: var(--muted); }
+details { margin: .8rem 0; }
+@media (max-width: 700px) { form p { grid-template-columns: 1fr; } }
+fieldset { border: 1px solid var(--line); border-radius: 6px; margin: 1rem 0; padding: .4rem 1rem .8rem; }
+legend { color: var(--muted); font-weight: 600; padding: 0 .4rem; }

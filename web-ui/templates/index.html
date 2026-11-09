@@ -1,0 +1,266 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com> -->
+<!-- LLM: Anthropic Opus -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kiko-lite web-ui</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>kiko-lite web-ui</h1>
+        <div class="header-right" id="header-right">
+            <div class="user-menu">
+                <span class="user-name">admin</span>
+                <button class="btn-secondary btn-sm" data-logout>Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <nav>
+        <button class="tab-btn active" data-tab="models">Models</button>
+        <button class="tab-btn" data-tab="classes">Classes</button>
+        <button class="tab-btn" data-tab="billing">Billing</button>
+        <button class="tab-btn" data-tab="logs">Logs</button>
+        <button class="tab-btn" data-tab="text-logs">Text Log</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+        <button class="tab-btn" data-tab="aliases">Aliases</button>
+    </nav>
+
+    <!-- Change Password Modal -->
+    <div id="modal-change-pass" class="modal hidden">
+        <div class="modal-content">
+            <h3>Change Password</h3>
+            <form id="form-change-pass">
+                <div class="form-row">
+                    <label>Current Password</label>
+                    <input type="password" name="current_password" required autocomplete="current-password">
+                </div>
+                <div class="form-row">
+                    <label>New Password</label>
+                    <input type="password" name="new_password" required minlength="6" autocomplete="new-password">
+                </div>
+                <div class="form-row">
+                    <label>Confirm New Password</label>
+                    <input type="password" name="confirm_password" required autocomplete="new-password">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" data-close-modal="modal-change-pass">Cancel</button>
+                    <button type="submit" class="btn-primary">Change</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <main>
+        <!-- Models Tab -->
+        <section id="tab-models" class="tab-panel active">
+            <div class="panel-header">
+                <h2>Models</h2>
+                <button id="btn-add-model" class="btn-primary">Add Model</button>
+            </div>
+            <table id="models-table">
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <!-- Classes Tab -->
+        <section id="tab-classes" class="tab-panel">
+            <div class="panel-header">
+                <h2>Model Classes</h2>
+                <button id="btn-add-class" class="btn-primary">Add Class</button>
+            </div>
+            <table id="classes-table">
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <!-- Billing Tab -->
+        <section id="tab-billing" class="tab-panel">
+            <div class="panel-header">
+                <h2>Billing</h2>
+                <select id="billing-days">
+                    <option value="1">Last 1 day</option>
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+            <table id="billing-table">
+                <tbody></tbody>
+            </table>
+            <div id="billing-total"></div>
+        </section>
+
+        <!-- Logs Tab -->
+        <section id="tab-logs" class="tab-panel">
+            <div class="panel-header">
+                <h2>Logs</h2>
+            </div>
+            <table id="logs-table">
+                <tbody></tbody>
+            </table>
+            <div id="logs-pagination" class="pagination"></div>
+        </section>
+
+        <!-- Text Logs Tab -->
+        <section id="tab-text-logs" class="tab-panel">
+            <div class="panel-header">
+                <h2>Text Log (LLM Requests/Responses)</h2>
+            </div>
+            <table id="text-logs-table">
+                <tbody></tbody>
+            </table>
+            <div id="text-logs-pagination" class="pagination"></div>
+        </section>
+
+        <!-- Settings Tab -->
+        <section id="tab-settings" class="tab-panel">
+            <div class="panel-header">
+                <h2>Settings</h2>
+            </div>
+            <table id="settings-table">
+                <tbody></tbody>
+            </table>
+            <div class="form-inline">
+                <input type="text" id="setting-key" placeholder="Key (monthly_cap_usd, disable_billing, health_check_interval, health_no_probe)">
+                <input type="text" id="setting-value" placeholder="Value">
+                <button id="btn-add-setting" class="btn-primary">Set</button>
+            </div>
+        </section>
+
+        <!-- Aliases Tab -->
+        <section id="tab-aliases" class="tab-panel">
+            <div class="panel-header">
+                <h2>Aliases (Glob → Target)</h2>
+                <button id="btn-add-alias" class="btn-primary">Add Alias</button>
+            </div>
+            <table id="aliases-table">
+                <tbody></tbody>
+            </table>
+        </section>
+    </main>
+
+    <!-- Model Modal -->
+    <div id="modal-model" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="modal-model-title">Add Model</h3>
+            <form id="form-model">
+                <input type="hidden" id="model-alias" name="alias">
+                <div class="form-row">
+                    <label>Alias <span class="required">*</span></label>
+                    <input type="text" name="alias" id="f-alias" required>
+                </div>
+                <div class="form-row">
+                    <label>Provider <span class="required">*</span></label>
+                    <input type="text" name="provider" id="f-provider" placeholder="gemini/gemini-3.8-flash" required>
+                </div>
+                <div class="form-row">
+                    <label>API Base (optional)</label>
+                    <input type="text" name="api_base" id="f-api_base" placeholder="https://api.example.com/v1">
+                </div>
+                <div class="form-row">
+                    <label>API Key Env Name <span class="required">*</span></label>
+                    <input type="text" name="api_key_env" id="f-api_key_env" placeholder="GEMINI_API_KEY" required>
+                </div>
+                <div class="form-row">
+                    <label>Class</label>
+                    <select name="model_class" id="f-model_class">
+                        <option value="OPUS">OPUS</option>
+                        <option value="SONNET" selected>SONNET</option>
+                        <option value="HAIKU">HAIKU</option>
+                        <option value="FABLE">FABLE</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Priority</label>
+                    <input type="number" name="priority" id="f-priority" value="100" min="1">
+                </div>
+                <div class="form-row">
+                    <label>Price In ($/Mtok)</label>
+                    <input type="number" name="price_in_per_mtok" id="f-price_in_per_mtok" step="0.0001" min="0">
+                </div>
+                <div class="form-row">
+                    <label>Price Out ($/Mtok)</label>
+                    <input type="number" name="price_out_per_mtok" id="f-price_out_per_mtok" step="0.0001" min="0">
+                </div>
+                <div class="form-row">
+                    <label>Price Cache ($/Mtok)</label>
+                    <input type="number" name="price_cache_read_per_mtok" id="f-price_cache_read_per_mtok" step="0.0001" min="0">
+                </div>
+                <div class="form-row">
+                    <label>Enabled</label>
+                    <input type="checkbox" name="enabled" id="f-enabled" checked>
+                </div>
+                <div class="form-row">
+                    <label>Status</label>
+                    <select name="status" id="f-status">
+                        <option value="unknown">unknown</option>
+                        <option value="ok">ok</option>
+                        <option value="error">error</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" data-close-modal="modal-model">Cancel</button>
+                    <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Class Modal -->
+    <div id="modal-class" class="modal hidden">
+        <div class="modal-content">
+            <h3>Add Class</h3>
+            <form id="form-class">
+                <div class="form-row">
+                    <label>Name <span class="required">*</span></label>
+                    <input type="text" name="name" id="f-class-name" placeholder="VOICE" required>
+                </div>
+                <div class="form-row">
+                    <label>Keyword <span class="required">*</span></label>
+                    <input type="text" name="keyword" id="f-class-keyword" placeholder="voice" required>
+                </div>
+                <div class="form-row">
+                    <label>Role</label>
+                    <input type="text" name="role" id="f-class-role" placeholder="Voice models">
+                </div>
+                <div class="form-row">
+                    <label>Sort</label>
+                    <input type="number" name="sort" id="f-class-sort" value="100" min="1">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" data-close-modal="modal-class">Cancel</button>
+                    <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alias Modal -->
+    <div id="modal-alias" class="modal hidden">
+        <div class="modal-content">
+            <h3>Add Alias</h3>
+            <form id="form-alias">
+                <div class="form-row">
+                    <label>Glob Pattern <span class="required">*</span></label>
+                    <input type="text" name="glob" id="f-alias-glob" placeholder="claude-*" required>
+                </div>
+                <div class="form-row">
+                    <label>Target Model <span class="required">*</span></label>
+                    <input type="text" name="target" id="f-alias-target" placeholder="gemini-flash" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" data-close-modal="modal-alias">Cancel</button>
+                    <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+flowchart TD
+    REQ["Incoming request"] --> SUM["SELECT SUM(cost_usd)\nWHERE month = current_month"]
+    SUM --> CHK{"sum >= monthly_cap_usd?"}
+    CHK -- No --> PROCEED["Continue → _prepare → litellm"]
+    CHK -- Yes --> REFUSE["Refuse in client's error shape\nOpenAI: 429 + error.code capacity\nAnthropic: 529 + overloaded_error\nGemini: 429 + RESOURCE_EXHAUSTED\nCodex: 429 + error"]

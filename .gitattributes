@@ -1,0 +1,4 @@
+*.ipynb linguist-vendored
+ui/litellm-dashboard/src/lib/http/schema.d.ts linguist-generated
+*.sh text eol=lf
+*.service text eol=lf

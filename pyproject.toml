@@ -1,0 +1,124 @@
+[project]
+name = "kiko"
+version = "0.2.0"
+description = "KIKO — LiteLLM Home Edition: minimal AI proxy with SQLite billing (fork of litellm v1.104.2)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Peter Kokosharov", email = "peter.kokosharov@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fastuuid>=0.14.0,<1.0",
+    "filelock>=3.16.1,<4.0",
+    "httpx[http2]>=0.28.0,<1.0",
+    "openai>=2.20.0,<3.0.0",
+    "python-dotenv>=1.0.0,<2.0",
+    "pyyaml>=6.0.3,<7.0",
+    "packaging>=24.0",
+    "importlib-metadata>=8.0.0,<9.0",
+    "tiktoken>=0.8.0,<1.0",
+    "tokenizers>=0.20.0,<1.0",
+    "click>=8.0.0,<9.0",
+    "jinja2>=3.1.6,<4.0",
+    "aiohttp>=3.14.2,<4.0",
+    "pydantic>=2.11.0,<3.0.0",
+    "pydantic-settings>=2.14.1,<3.0",
+    "jsonschema>=4.0.0,<5.0",
+    # Server runtime — always needed for kiko
+    "fastapi>=0.136.3,<1.0",
+    "uvicorn>=0.33.0,<1.0",
+    "python-multipart>=0.0.27,<1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/peter-kokosharov/kiko"
+
+[project.optional-dependencies]
+# AWS Bedrock / Sagemaker support
+aws = [
+    "boto3>=1.43.1,<2.0",
+]
+# Faster JSON serialisation (nice-to-have, not required)
+perf = [
+    "orjson>=3.11.6,<4.0",
+    "uvloop>=0.22.1,<1.0; sys_platform != 'win32'",
+]
+
+[project.scripts]
+kiko = "litellm.proxy.kiko_server:run_server"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0,<10.0",
+    "pytest-asyncio>=1.0.0,<2.0",
+    "pytest-mock>=3.15.0,<4.0",
+    "respx>=0.22.0,<1.0",
+    "httpx>=0.28.0,<1.0",
+    "psutil>=5.0.0",
+]
+
+[build-system]
+# KIKO: replaced maturin (Rust) with hatchling (pure-Python build).
+# The litellm-rust Cargo crate is not part of KIKO — no Rust toolchain needed.
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["litellm"]
+exclude = [
+    "litellm/proxy/enterprise/**",
+    "litellm-rust/**",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**",
+    "litellm/proxy/example_config_yaml/**",
+    "litellm/proxy/test_prompts/**",
+    "litellm/integrations/test_httpx.py",
+    "litellm/proxy/start.sh",
+    "litellm/integrations/azure_sentinel/example_standard_logging_payload.json",
+    "litellm/proxy/hooks/example_presidio_ad_hoc_recognizer.json",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+required-version = ">=0.10.9"
+
+[tool.commitizen]
+version = "0.1.0"
+version_files = [
+    "pyproject.toml:^version",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+markers = [
+    "asyncio: mark test as an asyncio test",
+    "limit_leaks: mark test with memory limit for leak detection (e.g., '40 MB')",
+    "no_parallel: mark test to run sequentially (not in parallel) - typically for memory measurement tests",
+    "requires_rust_extension: public Python contract requiring an enabled, compiled Rust extension",
+]
+filterwarnings = [
+    # Suppress Pydantic serializer warnings from mock server responses (non-critical for memory tests)
+    # These occur because the mock server returns a simplified response format
+    "ignore:Pydantic serializer warnings:UserWarning",
+    "ignore::UserWarning:pydantic.main",
+    # Suppress pytest-asyncio event loop deprecation warning (handled automatically by pytest-asyncio)
+    "ignore::DeprecationWarning:pytest_asyncio.plugin",
+]
+
+
+[tool.coverage.run]
+source = ["litellm"]
+relative_files = true

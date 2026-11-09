@@ -1,0 +1,52 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com> -->
+<!-- LLM: Anthropic Opus -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kiko-lite web-ui - Class Form</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>kiko-lite web-ui</h1>
+        <div class="header-right">
+            <a href="/" class="btn-secondary btn-sm">← Back</a>
+            <span class="user-name">admin</span>
+            <button class="btn-secondary btn-sm" data-logout>Logout</button>
+        </div>
+    </header>
+
+    <main class="page-main page-main-500">
+        <h2 id="page-title">Add Class</h2>
+
+        <form id="form-class" method="POST">
+            <div class="form-row">
+                <label>Name <span class="required">*</span></label>
+                <input type="text" name="name" id="f-class-name" placeholder="VOICE" required>
+            </div>
+            <div class="form-row">
+                <label>Keyword <span class="required">*</span></label>
+                <input type="text" name="keyword" id="f-class-keyword" placeholder="voice" required>
+            </div>
+            <div class="form-row">
+                <label>Role</label>
+                <input type="text" name="role" id="f-class-role" placeholder="Voice models">
+            </div>
+            <div class="form-row">
+                <label>Sort</label>
+                <input type="number" name="sort" id="f-class-sort" value="100" min="1">
+            </div>
+
+            <div class="modal-actions form-actions">
+                <a href="/" class="btn-secondary">Cancel</a>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
+    </main>
+
+    <script type="module" src="/static/pages/class_form.js"></script>
+</body>
+</html>

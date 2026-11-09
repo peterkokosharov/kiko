@@ -1,0 +1,1 @@
+/usr/include/tqt3/ntqtextbrowser.h

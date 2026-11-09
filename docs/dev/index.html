@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com> -->
+<!-- LLM: Anthropic Sonnet -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>kiko-proxy — Developer Reference</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  <style>
+    /* ── Base tokens ─────────────────────────────────────────────────────── */
+    :root {
+      --bg:        #ffffff;
+      --bg-alt:    #f6f8fa;
+      --border:    #d1d9e0;
+      --text:      #1c2128;
+      --text-muted:#57606a;
+      --accent:    #0969da;
+      --accent-h:  #0550ae;
+      --code-bg:   #f0f2f5;
+      --radius:    6px;
+      --max-w:     900px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:        #0d1117;
+        --bg-alt:    #161b22;
+        --border:    #30363d;
+        --text:      #e6edf3;
+        --text-muted:#8b949e;
+        --accent:    #58a6ff;
+        --accent-h:  #79c0ff;
+        --code-bg:   #1f2428;
+      }
+    }
+
+    /* ── Reset & base ────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      padding: 2rem 1rem 4rem;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-h); text-decoration: underline; }
+
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    .wrapper { max-width: var(--max-w); margin: 0 auto; }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    header h1 { font-size: 1.9rem; font-weight: 700; }
+    header p { color: var(--text-muted); margin-top: .3rem; }
+
+    /* ── TOC ─────────────────────────────────────────────────────────────── */
+    nav.toc {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.4rem;
+      margin-bottom: 2.5rem;
+    }
+    nav.toc h2 { font-size: 1rem; font-weight: 600; margin-bottom: .6rem; }
+    nav.toc ol { padding-left: 1.2rem; }
+    nav.toc li { margin: .25rem 0; font-size: .95rem; }
+
+    /* ── Sections ────────────────────────────────────────────────────────── */
+    section { margin-bottom: 3rem; }
+    section h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: .45rem;
+      margin-bottom: 1rem;
+    }
+    section h3 { font-size: 1.05rem; font-weight: 600; margin: 1.2rem 0 .5rem; }
+    p { margin-bottom: .8rem; }
+
+    /* ── Diagram container ───────────────────────────────────────────────── */
+    .diagram-wrap {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.4rem 1rem;
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+    .diagram-wrap pre.mermaid {
+      display: block;
+      font-family: inherit;
+    }
+
+    /* ── Note box ────────────────────────────────────────────────────────── */
+    .note {
+      background: var(--bg-alt);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: .7rem 1rem;
+      font-size: .92rem;
+      color: var(--text-muted);
+      margin: .8rem 0 1rem;
+    }
+
+    /* ── Tables ──────────────────────────────────────────────────────────── */
+    .tbl-wrap { overflow-x: auto; margin: 1rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .93rem;
+    }
+    th {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      padding: .5rem .75rem;
+      text-align: left;
+      font-weight: 600;
+    }
+    td {
+      border: 1px solid var(--border);
+      padding: .45rem .75rem;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: var(--bg-alt); }
+
+    /* ── Inline code ─────────────────────────────────────────────────────── */
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: .875em;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: .1em .35em;
+    }
+
+    /* ── Code blocks ─────────────────────────────────────────────────────── */
+    pre:not(.mermaid) {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: .875em;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      overflow-x: auto;
+      margin: .8rem 0;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: .85rem;
+      padding-top: 1rem;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <h1>kiko-proxy — Developer Reference</h1>
+    <p>Architecture, data-flow diagrams, and API reference for the KIKO AI proxy.</p>
+  </header>
+
+  <!-- ── Table of Contents ─────────────────────────────────────────────── -->
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#system-context">System Context</a></li>
+      <li><a href="#request-sequence">Request Handling Sequence</a></li>
+      <li><a href="#api-key-resolution">API Key Resolution</a></li>
+      <li><a href="#routes">Supported Routes</a></li>
+      <li><a href="#model-alias">Model Alias Resolution</a></li>
+      <li><a href="#billing-schema">Billing Schema</a></li>
+      <li><a href="#monthly-cap">Monthly Cap Flow</a></li>
+      <li><a href="#key-files">Key Files</a></li>
+    </ol>
+  </nav>
+
+  <!-- ── 1. Overview ───────────────────────────────────────────────────── -->
+  <section id="overview">
+    <h2>1. Overview</h2>
+    <p>
+      <strong>kiko-proxy</strong> is a minimal FastAPI server that sits in front of the
+      Anthropic, Google Gemini, and OpenAI APIs. It is designed for a single owner:
+      there is one secret (<code>MASTER_KEY</code>), no user database, no JWT, and no
+      enterprise middleware.
+    </p>
+    <p>
+      Clients authenticate with <code>MASTER_KEY</code> via any of three HTTP header
+      conventions (<code>x-api-key</code>, <code>Authorization: Bearer</code>, or
+      <code>x-goog-api-key</code>). After authentication, requests are translated to the
+      appropriate upstream protocol through <strong>litellm</strong>, and every successful
+      call is recorded to a local SQLite billing database at
+      <code>~/.kircho/kircho.db</code>.
+    </p>
+    <p>
+      A configurable monthly spending cap (<code>monthly_cap_usd</code>) returns
+      protocol-correct 429 responses before any upstream call is made when the cap is
+      reached. Model configuration lives in a YAML file and is optionally seeded into
+      the SQLite <code>models</code> table, which becomes the runtime source of truth.
+    </p>
+  </section>
+
+  <!-- ── 2. System Context ─────────────────────────────────────────────── -->
+  <section id="system-context">
+    <h2>2. System Context</h2>
+    <p>
+      Three clients send requests to kiko-proxy on port 4000. The proxy forwards them to
+      the appropriate upstream API and writes billing data to a local SQLite file.
+    </p>
+    <div class="diagram-wrap">
+      <pre class="mermaid">
+graph LR
+    CC["Claude Code\n(Anthropic client)"]
+    GC["Gemini CLI"]
+    CX["Codex CLI\n(OpenAI Responses)"]
+    KP["kiko-proxy\n:4000\nFastAPI"]
+    AN["Anthropic API\napi.anthropic.com"]
+    GM["Google Gemini API"]
+    OA["OpenAI API"]
+    DB[("kircho.db\nSQLite")]
+
+    CC -->|"x-api-key: MASTER_KEY"| KP
+    GC -->|"Authorization: Bearer"| KP
+    CX -->|"Authorization: Bearer"| KP
+    KP --> AN
+    KP --> GM
+    KP --> OA
+    KP --> DB
+      </pre>
+    </div>
+  </section>
+
+  <!-- ── 3. Request Handling Sequence ──────────────────────────────────── -->
+  <section id="request-sequence">
+    <h2>3. Request Handling Sequence</h2>
+    <p>
+      Every authenticated request passes through three layers before the upstream call:
+      auth checks the master key, <code>_prepare()</code> strips dangerous client fields
+      and injects server-side credentials, and the route handler calls litellm.
+      After a successful response the billing logger writes to SQLite asynchronously.
+    </p>
+    <div class="diagram-wrap">
+      <pre class="mermaid">
+sequenceDiagram
+    participant C as Client
+    participant Auth as user_api_key_auth
+    participant Prep as _prepare()
+    participant Route as Route handler
+    participant LLM as litellm / upstream
+    participant Bill as KikoSQLiteLogger
+
+    C->>Auth: POST /v1/messages\nx-api-key: MASTER_KEY
+    Auth->>Auth: hmac.compare_digest(key, MASTER_KEY)
+    alt invalid key
+        Auth-->>C: 401 Unauthorized
+    end
+    Auth->>Route: UserAPIKeyAuth object
+    Route->>Prep: request body
+    Prep->>Prep: strip client api_key field
+    Prep->>Prep: inject model litellm_params\n(api_key, api_base from config)
+    Route->>LLM: litellm.acompletion(model, ...)
+    LLM-->>Route: ModelResponse
+    Route->>Bill: log_success_event(cost, tokens, route)
+    Bill->>Bill: INSERT INTO billing\n(model, cost_usd, route)
+    Route-->>C: response (streaming or full)
+      </pre>
+    </div>
+  </section>
+
+  <!-- ── 4. API Key Resolution ──────────────────────────────────────────── -->
+  <section id="api-key-resolution">
+    <h2>4. API Key Resolution</h2>
+    <p>
+      Model credentials in the YAML config can be literal strings or references to
+      environment variables using the <code>os.environ/VAR</code> syntax. On Windows,
+      if the environment variable is empty, kiko falls back to the Windows Credential
+      Manager at target <code>KIRCHO/VAR</code>.
+    </p>
+    <div class="diagram-wrap">
+      <pre class="mermaid">
+flowchart TD
+    V["yaml value"] --> Q{"matches\nos.environ/VAR?"}
+    Q -- "No (literal)" --> LIT["return as-is\n⚠ hardcoded in yaml"]
+    Q -- "Yes" --> ENV["os.environ.get(VAR)"]
+    ENV --> E{"empty?"}
+    E -- "No" --> RET["return env value"]
+    E -- "Yes" --> WCM["_cred_get(VAR)\nWindows Credential Manager\ntarget: KIRCHO/VAR"]
+    WCM --> W{"found?"}
+    W -- "Yes" --> RWCM["return WCM value"]
+    W -- "No" --> EMPTY["return ''"]
+      </pre>
+    </div>
+    <div class="note">
+      The Windows Credential Manager fallback is Windows-only. On Linux and macOS,
+      <code>_cred_get()</code> always returns an empty string immediately (no WCM
+      available). Use real environment variables on those platforms.
+    </div>
+  </section>
+
+  <!-- ── 5. Supported Routes ────────────────────────────────────────────── -->
+  <section id="routes">
+    <h2>5. Supported Routes</h2>
+    <p>All routes (except <code>/health</code>) require the
+      <code>MASTER_KEY</code>. Streaming routes return <code>text/event-stream</code>.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Route</th>
+            <th>Method</th>
+            <th>Protocol</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>/v1/messages</code></td>
+            <td>POST</td>
+            <td>Anthropic Messages</td>
+            <td>streaming + non-stream</td>
+          </tr>
+          <tr>
+            <td><code>/v1/messages/count_tokens</code></td>
+            <td>POST</td>
+            <td>Anthropic</td>
+            <td>local token count, no upstream call</td>
+          </tr>
+          <tr>
+            <td><code>/v1beta/models/{m}:generateContent</code></td>
+            <td>POST</td>
+            <td>Gemini</td>
+            <td>non-stream; translated via google_genai adapter</td>
+          </tr>
+          <tr>
+            <td><code>/v1beta/models/{m}:streamGenerateContent</code></td>
+            <td>POST</td>
+            <td>Gemini</td>
+            <td>SSE; no event: prefix, no [DONE] marker</td>
+          </tr>
+          <tr>
+            <td><code>/v1beta/models/{m}:countTokens</code></td>
+            <td>POST</td>
+            <td>Gemini</td>
+            <td>local token count, no upstream call</td>
+          </tr>
+          <tr>
+            <td><code>/v1/responses</code></td>
+            <td>POST</td>
+            <td>OpenAI Responses</td>
+            <td>Codex CLI; stream + non-stream; web_search stripped</td>
+          </tr>
+          <tr>
+            <td><code>/v1/chat/completions</code></td>
+            <td>POST</td>
+            <td>OpenAI Chat</td>
+            <td>passthrough via litellm.acompletion</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 6. Model Alias Resolution ─────────────────────────────────────── -->
+  <section id="model-alias">
+    <h2>6. Model Alias Resolution</h2>
+    <p>
+      Before <code>_prepare()</code> runs, the client's model name is resolved through a
+      two-priority alias chain. YAML glob patterns take precedence; environment-variable
+      tier aliases (<code>ANTHROPIC_DEFAULT_OPUS_MODEL</code> etc.) apply as a fallback
+      for claude-* models. The resolved alias is then looked up in the SQLite
+      <code>models</code> table (or YAML fallback) to obtain <code>litellm_params</code>.
+    </p>
+    <div class="diagram-wrap">
+      <pre class="mermaid">
+flowchart TD
+    REQ["client requests model alias\ne.g. 'claude'"] --> DB2[("kiko SQLite\nmodels table")]
+    DB2 --> GLOB{"glob match?\ne.g. claude*"}
+    GLOB -- "Yes" --> PARAMS["load litellm_params\n_resolve_env() on each value"]
+    GLOB -- "No" --> YAML["fallback to\nkiko-sample.yaml model_list"]
+    PARAMS --> LLM2["litellm.acompletion\n(model=provider/id, api_key=..., api_base=...)"]
+    YAML --> LLM2
+      </pre>
+    </div>
+  </section>
+
+  <!-- ── 7. Billing Schema ──────────────────────────────────────────────── -->
+  <section id="billing-schema">
+    <h2>7. Billing Schema</h2>
+    <p>
+      The SQLite database at <code>~/.kircho/kircho.db</code> (or <code>KIKO_DB_PATH</code>)
+      contains two tables. The <code>billing</code> table records one row per successful
+      upstream call. The <code>models</code> table stores model aliases and their routing
+      parameters.
+    </p>
+    <div class="diagram-wrap">
+      <pre class="mermaid">
+erDiagram
+    billing {
+        integer id PK
+        text model
+        text route
+        real cost_usd
+        integer tokens_in
+        integer tokens_out
+        text ts
+    }
+    models {
+        integer id PK
+        text alias
+        text provider
+        text api_base
+        text api_key_env
+        integer enabled
+        text status
+        text last_check
+    }
+      </pre>
+    </div>
+    <p>
+      <code>billing.route</code> identifies the request origin:
+      <code>messages</code>, <code>gemini_generate</code>, <code>gemini_stream</code>,
+      <code>responses</code>, <code>chat</code>, etc. Use it to break down cost by
+      client type via <code>GROUP BY route</code>.
+    </p>
+    <p>
+      <code>models.status</code> is set by <code>kiko --discover</code> (values:
+      <code>unknown</code>, <code>ok</code>, <code>error</code>).
+      Disabled models (<code>enabled=0</code>) are hidden from the server and
+      <code>--list-models</code>.
+    </p>
+  </section>
+
+  <!-- ── 8. Monthly Cap Flow ────────────────────────────────────────────── -->
+  <section id="monthly-cap">
+    <h2>8. Monthly Cap Flow</h2>
+    <p>
+      When <code>monthly_cap_usd</code> is set in <code>general_settings</code>, every
+      route handler calls <code>_check_monthly_cap()</code> before touching the request
+      body or making any upstream call. The cap is checked by summing the current
+      calendar month's <code>cost_usd</code> from the billing table.
+    </p>
+    <div class="diagram-wrap">
+      <pre class="mermaid">
+flowchart TD
+    REQ2["incoming request"] --> SUM["SELECT SUM(cost_usd)\nFROM billing\nWHERE ts >= month_start"]
+    SUM --> CAP{"sum >= monthly_cap_usd?"}
+    CAP -- "Yes" --> E429["return 429\nwith Anthropic / OpenAI / Gemini\nerror shape"]
+    CAP -- "No" --> CONT["continue to upstream"]
+      </pre>
+    </div>
+    <div class="note">
+      The 429 response body shape depends on the route: Anthropic routes return
+      <code>{"type":"error","error":{"type":"rate_limit_error","message":"..."}}</code>,
+      Gemini routes return <code>{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}</code>,
+      and OpenAI routes return <code>{"error":{"code":"monthly_cap_exceeded"}}</code>.
+    </div>
+  </section>
+
+  <!-- ── 9. Key Files ───────────────────────────────────────────────────── -->
+  <section id="key-files">
+    <h2>9. Key Files</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>litellm/proxy/kiko_server.py</code></td>
+            <td>FastAPI app factory, all route handlers, CLI entry point
+              (<code>run_server()</code>), model alias resolution, monthly cap check</td>
+          </tr>
+          <tr>
+            <td><code>litellm/proxy/integrations/kiko_sqlite_logger.py</code></td>
+            <td>Billing SQLite logger (<code>KikoSQLiteLogger</code>), schema init,
+              model CRUD helpers (<code>seed_models</code>, <code>load_models</code>,
+              <code>add_model</code>, <code>delete_model</code>,
+              <code>set_model_enabled</code>)</td>
+          </tr>
+          <tr>
+            <td><code>litellm/proxy/auth/user_api_key_auth.py</code></td>
+            <td>HMAC constant-time MASTER_KEY comparison; supports
+              <code>x-api-key</code>, <code>Authorization: Bearer</code>,
+              <code>x-goog-api-key</code> headers</td>
+          </tr>
+          <tr>
+            <td><code>kiko-sample.yaml</code></td>
+            <td>Annotated config reference — model_list, model_aliases,
+              litellm_settings, general_settings</td>
+          </tr>
+          <tr>
+            <td><code>docs/HOME-TEST.md</code></td>
+            <td>Live end-to-end test checklist: Claude Code, Gemini CLI, Codex,
+              monthly cap stress test</td>
+          </tr>
+          <tr>
+            <td><code>kiko_build.py</code></td>
+            <td>Build script — produces the distributable kiko package</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p>kiko-proxy developer reference &mdash; generated 2026-10-15 &mdash;
+      AI model: claude-sonnet-4-6</p>
+  </footer>
+
+</div><!-- /.wrapper -->
+</body>
+</html>

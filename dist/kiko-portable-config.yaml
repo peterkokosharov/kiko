@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
+# LLM: Anthropic Sonnet
+# kiko portable config – paths relative to the kiko folder.
+# Copy to kiko-config.yaml and fill in MASTER_KEY.
+#
+# MASTER_KEY: set the MASTER_KEY environment variable before starting,
+# or add it here as: master_key: sk-...
+#
+model_list:
+  - model_name: claude-haiku-4-5
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      kiko_class: HAIKU
+      priority: 1
+  - model_name: claude-sonnet-4-5
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      kiko_class: SONNET
+      priority: 1

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
+# LLM: Nemotron 3 Ultra
+# kiko TDE Panel Applet - Desktop Entry
+
+[Desktop Entry]
+Type=Plugin
+Name=kiko Proxy
+Comment=Control kiko Proxy from TDE Panel
+Icon=Kiko_running
+X-TDE-Library=kiko_applet
+X-TDE-UniqueApplet=true

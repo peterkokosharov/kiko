@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Model classes - kiko-lite</title><style>
+:root{--bg:#fff;--fg:#1f2328;--mut:#656d76;--nav:#f6f8fa;--bd:#d0d7de;--code:#f6f8fa;--lnk:#0969da}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--nav:#161b22;--bd:#30363d;--code:#161b22;--lnk:#58a6ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,Segoe UI,sans-serif;display:flex;min-height:100vh}
+nav{width:250px;flex:none;background:var(--nav);border-right:1px solid var(--bd);padding:20px 16px;position:sticky;top:0;height:100vh;overflow:auto}
+nav h2{font-size:18px;margin:0 0 12px}nav a{display:block;padding:6px 10px;border-radius:6px;color:var(--fg);text-decoration:none}
+nav a:hover{background:var(--bd)}nav a.cur{background:var(--lnk);color:#fff}
+.lang{margin:0 0 14px;font-size:14px}.lang a{display:inline;padding:2px 6px}.lang a.cur{background:var(--lnk);color:#fff}
+main{flex:1;max-width:960px;padding:24px 40px;min-width:0}a{color:var(--lnk)}
+pre{background:var(--code);border:1px solid var(--bd);border-radius:6px;padding:12px;overflow:auto;font-size:13.5px;line-height:1.45}
+code{font-family:Consolas,Menlo,monospace;font-size:90%}:not(pre)>code{background:var(--code);padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;display:block;overflow:auto}th,td{border:1px solid var(--bd);padding:6px 12px;text-align:left}
+th{background:var(--nav)}pre.mermaid{background:transparent;border:none;text-align:center}
+pre.mermaid svg{cursor:zoom-in}
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9;cursor:zoom-out;overflow:auto}
+#lb.on{display:flex}#lb svg{background:#fff;width:96vw;height:94vh;max-width:96vw;max-height:94vh;padding:12px;border-radius:6px;flex:none}
+#lb.big{align-items:flex-start;justify-content:flex-start}#lb.big svg{max-width:none;max-height:none;width:200%;height:auto}
+h1,h2{border-bottom:1px solid var(--bd);padding-bottom:6px}
+@media(max-width:700px){body{display:block}nav{width:auto;height:auto;position:static}main{padding:16px}}
+</style></head><body>
+<nav><h2>kiko-lite</h2><div class="lang"><a href="../en/MODEL-CLASSES.html" class=cur>EN</a> <a href="../bg/MODEL-CLASSES.html">BG</a></div><a href="README.html">Overview</a><a href="ARCHITECTURE.html">Architecture</a><a href="MODEL-CLASSES.html" class=cur>Model classes</a><a href="ROADMAP.html">Roadmap</a><a href="NUMBERS.html">Numbers</a><a href="CODE-TOUR.html">Code tour</a></nav>
+<main id="content"></main>
+<div id="lb" title="click to close, double-click to zoom"></div>
+<script id="md" type="application/json">"# Model classes\n\n## The idea\n\nA client does not name a vendor model. It names a **class**, and kiko-lite picks a model of that class. The class is a\njob description, not a brand. Claude Code already uses three class names (opus, sonnet, haiku) in its model\nsettings, so kiko-lite reuses them: the owner's agent system roni only says \"this task needs a SONNET\", and the\nrouter decides which real model that is today.\n\n| Class | Role | Meaning |\n|---|---|---|\n| HAIKU | laborer | bulk simple work, cheap and fast |\n| SONNET | craftsman | the main implementation work |\n| OPUS | manager and evaluator of the work | plans, reviews, judges the result |\n| FABLE | external auditor | a different vendor looks at the work; rare and independent |\n\nThese four are seeded into the database (`DEFAULT_CLASSES` in `kiko_lite/db.py`).\n\n## The owner's current map\n\n| Class | Model today |\n|---|---|\n| OPUS | Gemini Flash, or GPT-6 |\n| SONNET | NVIDIA Nemotron Ultra (free tier) |\n| HAIKU | Gemini flash-lite |\n| FABLE | GPT-6 (rarely used) |\n\nThis is a configuration, not code: change a row in the `models` table and the next request follows. Exact model ids\nare not listed here because they change; look at `python -m kiko_lite list-models`.\n\n## How a request name becomes a model (resolver order)\n\n`DBResolver.__call__` in `kiko_lite/resolver.py` tries, in this order:\n\n1. **DB alias globs** (`aliases` table, `fnmatch` pattern to target; first match wins).\n2. **Class keyword**: the lower-cased requested name is searched for the keyword of each class (for example\n   `claude-opus-4` contains `opus`). The best enabled model of that class is used: status `ok` first, then\n   `unknown`, then lowest `priority`, then lowest id (`Snapshot.best`).\n3. **Environment**: `ANTHROPIC_DEFAULT_<CLASS>_MODEL` of the matched class, the variable Claude Code itself uses to choose a model per\n   class. Its value is an alias or `provider/model-id`.\n4. The name itself, as an alias or a direct `provider/model-id`.\n\n```mermaid\nflowchart TD\n    REQ[\"Client asks for model name\"] --> A{\"DB alias glob matches?\"}\n    A -->|yes| TGT[\"target model\"]\n    A -->|no| K{\"Class keyword in the name?\"}\n    K -->|yes| B{\"Class has a usable enabled model?\"}\n    B -->|yes| PICK[\"best: status ok, then unknown; lowest priority\"]\n    B -->|no| E{\"Env ANTHROPIC_DEFAULT_CLASS_MODEL set?\"}\n    K -->|no| N\n    E -->|yes| TGT\n    E -->|no| N[\"use the name as alias or provider/model-id\"]\n    PICK --> TGT\n    N --> TGT\n    TGT --> UP[\"provider + upstream model id\"]\n```\n\n## Classes are data\n\nClasses live in the SQLite table `model_classes` (schema version 2): `name`, `keyword`, `role`, `sort`.\n\n```\npython -m kiko_lite list-classes\npython -m kiko_lite add-class VOICE --keyword voice --role \"speech output\"\npython -m kiko_lite add-model my-model --provider gemini/<model-id> --api-key-env GEMINI_API_KEY --class VOICE\n```\n\nRules enforced by `Database.add_class`: name is upper-case (`^[A-Z][A-Z0-9_]{0,31}$`), keyword is lower-case,\n3 to 64 characters, and no keyword may contain another (detection is a first substring match, so overlapping\nkeywords would hide a class).\n\n### Classes: planned and candidates\n\n| Status | Classes |\n|---|---|\n| Planned | VOICE, EYES (see [Planned classes](MODEL-CLASSES.md#planned-classes)) |\n| Candidates | see [Planned classes](MODEL-CLASSES.md#planned-classes) |\n\nNote: today kiko-lite serves only the Anthropic text endpoint (`/v1/messages`, `/v1/messages/count_tokens`). Classes\nfor other media need other endpoints and translators first; the table is ready, the endpoints are not.\n\n<a id=\"planned-classes\"><\/a>\n\n## Planned classes\n\nThe full list of classes we expect to add. Kind says whether the class is a language model (LLM) and which API shape it needs.\n\n| Class | What it does | Kind (API shape) | Example models or vendors | Status |\n|---|---|---|---|---|\n| VOICE | text-to-speech | non-LLM (audio out) | OpenAI TTS, ElevenLabs, Gemini TTS | planned |\n| EYES | understands images and screenshots | LLM (chat with image input) | Gemini, GPT vision models, Claude vision | planned |\n| EARS | speech-to-text | non-LLM (audio in) | Whisper, Deepgram, Gemini audio | proposed (orchestrator) |\n| MEMORY/EMBED | embeddings for search and memory | non-LLM (embeddings) | OpenAI embeddings, Gemini embeddings, Voyage, local bge/e5 | proposed (orchestrator) |\n| RERANK | reorders search results by relevance | non-LLM (rerank) | Cohere Rerank, Voyage rerank, local bge-reranker | proposed (auditor) |\n| GUARD | moderation and safety filter | LLM or classifier (chat or classify) | OpenAI moderation, Llama Guard, Gemini safety filters | proposed (auditor) |\n| CODER | code-specialized model | LLM (chat) | Qwen Coder, Codestral, GPT codex models | proposed (auditor) |\n| ROUTER/CLASSIFIER | tiny fast model that decides which class or handler a request needs | small LLM or classifier (chat or classify) | small local models, flash-lite class models | proposed (auditor) |\n| TUTOR/SCOUT | cheap long-context reader that digests big documents | LLM (chat, long context) | Gemini Flash and flash-lite, other long-context models | proposed (auditor) |\n| OCR/DOC | text and tables from scans or PDFs | non-LLM or vision LLM (document or image in) | Mistral OCR, Google Document AI, Tesseract | proposed (auditor) |\n| PAINTER | image generation | non-LLM (image out) | Imagen, GPT image models, Stable Diffusion, Flux | proposed (orchestrator) |\n| VIDEO | video generation or understanding | non-LLM or multimodal LLM (video in or out) | Veo, Sora, Gemini video input | proposed (orchestrator) |\n| MUSIC | music and audio generation | non-LLM (audio out) | Lyria, Suno, MusicGen | proposed (orchestrator) |\n| WATCH/DETECT | object detection on camera streams, including plates and faces; a LAN service, not a cloud model | non-LLM (detection on streams) | YOLO, Frigate, local plate and face recognizers | proposed (orchestrator) |\n| SENSOR | models over sensor or time-series data, e.g. anomaly detection | non-LLM (time series) | anomaly detectors, forecasting models | proposed (auditor) |\n| REALTIME | low-latency voice or chat sessions, streaming both ways | LLM (realtime, bidirectional streaming) | OpenAI Realtime, Gemini Live | proposed (orchestrator) |\n| ACTION | computer-use or tool-acting models | LLM (chat with tools) | Claude computer use, OpenAI computer-use models | proposed (auditor) |\n\nA class is just a database row (`add-class`), so text classes need no code. Non-chat classes (audio, image, embeddings,\ndetection) need a new ingress route or provider shape before they work. This list came from the 2026-10-30 audit: the\nauditor proposed classes without seeing our list, and the two lists were merged.\n\n## From class to a chosen alive model\n\n```mermaid\nflowchart LR\n    C[\"Class, e.g. SONNET\"] --> M1[\"Candidate 1 (priority 10)\"]\n    C --> M2[\"Candidate 2 (priority 20)\"]\n    C --> M3[\"Candidate 3 (priority 100)\"]\n    M1 --> AL{\"Alive?\"}\n    M2 --> AL\n    M3 --> AL\n    AL -->|\"status ok or unknown, enabled\"| CH[\"Chosen model\"]\n    AL -->|\"disabled or no key or unmappable\"| SKIP[\"skipped\"]\n```\n\nHonest status: the \"alive\" check today is only what is in the row (`enabled`, `status`) plus whether the row can be\nmapped to a provider. Nothing in kiko-lite probes the provider or flips `status` automatically yet; that is the\nwatchdog in the [ROADMAP](ROADMAP.md).\n\n## Later: the bookkeeper (planned)\n\nAn idea, not built: a \"bookkeeper\" that knows prices and free-tier limits and suggests the cheapest alive model for a\nclass. The billing table already records tokens and cost per request, and `models` has price columns, so the data\nfor it is being collected.\n"</script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+const src = JSON.parse(document.getElementById("md").textContent);
+const el = document.getElementById("content");
+const r = new marked.Renderer();
+r.code = (code, lang) => {
+  const t = typeof code === "object" ? code.text : code, l = typeof code === "object" ? code.lang : lang;
+  const esc = t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return l === "mermaid" ? '<pre class="mermaid">' + esc + "</pre>" : '<pre><code>' + esc + "</code></pre>";
+};
+el.innerHTML = marked.parse(src, {renderer: r});
+el.querySelectorAll("a[href]").forEach(a => {
+  const h = a.getAttribute("href");
+  if (/^[A-Za-z0-9_-]+[.]md(#.*)?$/.test(h)) a.setAttribute("href", h.replace(".md", ".html"));
+  else if (!/^([a-z][a-z0-9+.-]*:|#|\/)/i.test(h)) a.setAttribute("href", "../" + h);  // the html is one folder deeper than the md
+});
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+mermaid.initialize({startOnLoad: false, theme: dark ? "dark" : "default"});
+const pre = [...el.querySelectorAll("pre.mermaid")];
+pre.forEach(p => { p.dataset.src = p.textContent; });
+try {
+  await mermaid.run({querySelector: "pre.mermaid"});
+} catch (e) {
+  console.error(e);
+} finally {
+  // scroll to the #anchor only now: the diagrams change the page height
+  if (location.hash) { const t = document.getElementById(decodeURIComponent(location.hash.slice(1))); if (t) t.scrollIntoView(); }
+}
+// click to enlarge: the overlay always shows the light-theme diagram on white, so it is readable in dark mode too
+const lb = document.getElementById("lb");
+let n = 0;
+pre.forEach(p => {
+  const sv = p.querySelector("svg");
+  if (!sv) return;
+  sv.setAttribute("data-tip", "1");
+  p.title = "click to enlarge";
+  sv.addEventListener("click", async () => {
+    let svg = sv.outerHTML;
+    if (dark) {
+      try {
+        mermaid.initialize({startOnLoad: false, theme: "default"});
+        svg = (await mermaid.render("lbd" + (n++), p.dataset.src)).svg;
+      } catch (e) {}
+      mermaid.initialize({startOnLoad: false, theme: "dark"});
+    }
+    const t = document.createElement("div");
+    t.innerHTML = svg;
+    const c = t.querySelector("svg");
+    c.removeAttribute("width"); c.removeAttribute("height"); c.style.removeProperty("max-width");
+    if (!c.getAttribute("viewBox")) {
+      const b = sv.getBBox(); c.setAttribute("viewBox", "0 0 " + b.width + " " + b.height);
+    }
+    lb.querySelector("svg")?.remove();
+    lb.appendChild(c);
+    lb.className = "on";
+  });
+});
+lb.addEventListener("click", e => {
+  if (e.detail === 1) setTimeout(() => { if (!lb.dataset.z) lb.className = ""; lb.dataset.z = ""; }, 250);
+});
+lb.addEventListener("dblclick", () => { lb.dataset.z = "1"; lb.className = lb.className === "on big" ? "on" : "on big"; });
+document.addEventListener("keydown", e => { if (e.key === "Escape") lb.className = ""; });
+</script></body></html>

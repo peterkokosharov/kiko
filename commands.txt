@@ -1,0 +1,149 @@
+KIKO CLI Reference  v0.2.0
+==========================================
+
+USAGE
+  kiko [COMMAND] [OPTIONS]
+
+──────────────────────────────────────────────────────────────────────────────
+SERVER
+──────────────────────────────────────────────────────────────────────────────
+
+  kiko --config PATH [--port PORT] [--host HOST]
+      Start the proxy server.
+
+      --config PATH       Path to YAML model configuration file (required)
+      --port  PORT        Listen port (default: 4000)
+      --host  HOST        Bind address (default: 127.0.0.1 — localhost only)
+                          Use 0.0.0.0 to expose on LAN (security risk)
+
+      Server is ready when you see:
+        KIKO running on http://127.0.0.1:4000 (Press CTRL+C to quit)
+
+──────────────────────────────────────────────────────────────────────────────
+DATABASE SETUP
+──────────────────────────────────────────────────────────────────────────────
+
+  kiko --config PATH --init-db
+      Seed the models table from a YAML config file, then exit.
+      Run once after installing KIKO or after editing your YAML.
+      Idempotent — safe to run multiple times.
+
+──────────────────────────────────────────────────────────────────────────────
+MODEL MANAGEMENT
+──────────────────────────────────────────────────────────────────────────────
+
+  kiko --list-models
+      List all enabled models in the database with their provider and API base.
+
+  kiko --add-model ALIAS --provider PROVIDER/ID --api-key-env VAR [--api-base URL]
+      Add or update a model in the database.
+
+      ALIAS           Short name used in API calls, e.g. "gemini-flash"
+      PROVIDER/ID     LiteLLM model string, e.g. "gemini/gemini-2.0-flash-lite"
+      VAR             Environment variable name (without os.environ/ prefix)
+                      that holds the API key, e.g. "GEMINI_API_KEY"
+      URL             API base URL — required for NVIDIA NIM and similar
+                      e.g. "https://integrate.api.nvidia.com/v1"
+
+  kiko --delete-model ALIAS
+      Remove a model from the database permanently.
+      Exits with code 1 if the alias is not found.
+
+  kiko --enable-model ALIAS
+      Re-enable a model that was previously disabled.
+      Exits with code 1 if the alias is not found.
+
+  kiko --disable-model ALIAS
+      Disable a model without deleting it.
+      Disabled models are hidden from --list-models and the server.
+      Exits with code 1 if the alias is not found.
+
+  kiko --discover
+      Ping each enabled model with a minimal test request.
+      Updates status (ok / error) and last_check timestamp in the database.
+      Uses max_tokens=400 to accommodate reasoning models.
+
+──────────────────────────────────────────────────────────────────────────────
+BILLING
+──────────────────────────────────────────────────────────────────────────────
+
+  kiko --costs [--days N]
+      Show per-model cost summary from the billing database.
+      --days N    Number of days to include (default: 30)
+
+      Output columns: Model | Calls | Tokens In | Tokens Out | Cost USD
+
+──────────────────────────────────────────────────────────────────────────────
+ENVIRONMENT VARIABLES
+──────────────────────────────────────────────────────────────────────────────
+
+  KIKO_DB_PATH      Override the database path (default: ~/.kircho/kircho.db)
+  MASTER_KEY        API key required for all /v1/* requests
+  GEMINI_API_KEY    Google AI Studio key (or any name you set in config)
+  NVIDIA_API_KEY    NVIDIA NIM key (or any name you set in config)
+
+──────────────────────────────────────────────────────────────────────────────
+API ENDPOINTS  (requires Authorization: Bearer $MASTER_KEY)
+──────────────────────────────────────────────────────────────────────────────
+
+  GET  /health                     Liveness check (no auth required)
+  GET  /v1/models                  List available models
+  POST /v1/chat/completions        Chat completion (OpenAI-compatible)
+  POST /v1/completions             Text completion (OpenAI-compatible)
+  POST /v1/embeddings              Embeddings (OpenAI-compatible)
+
+──────────────────────────────────────────────────────────────────────────────
+EXAMPLES
+──────────────────────────────────────────────────────────────────────────────
+
+  # First-time setup from YAML
+  kiko --config kiko-config.yaml --init-db
+  kiko --discover
+  kiko --list-models
+
+  # Add a Google Gemini model manually
+  kiko --add-model gemini-pro ^
+      --provider gemini/gemini-1.5-pro ^
+      --api-key-env GEMINI_API_KEY
+
+  # Add a NVIDIA NIM model
+  kiko --add-model nemotron ^
+      --provider openai/nvidia/llama-3.1-nemotron-ultra-253b-v1 ^
+      --api-key-env NVIDIA_API_KEY ^
+      --api-base https://integrate.api.nvidia.com/v1
+
+  # Disable a model temporarily
+  kiko --disable-model nemotron-ultra
+
+  # Re-enable it
+  kiko --enable-model nemotron-ultra
+
+  # Remove permanently
+  kiko --delete-model old-model
+
+  # Start the server
+  kiko --config kiko-config.yaml --port 4000
+
+  # Show last 7 days of costs
+  kiko --costs --days 7
+
+  # Call via curl (Windows)
+  curl -H "Authorization: Bearer %MASTER_KEY%" ^
+       -H "Content-Type: application/json" ^
+       -d "{\"model\":\"gemini-flash\",\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}" ^
+       http://localhost:4000/v1/chat/completions
+
+  # Call via curl (Linux/Mac)
+  curl -H "Authorization: Bearer $MASTER_KEY" \
+       -H "Content-Type: application/json" \
+       -d '{"model":"gemini-flash","messages":[{"role":"user","content":"hello"}]}' \
+       http://localhost:4000/v1/chat/completions
+
+──────────────────────────────────────────────────────────────────────────────
+BILLING DATABASE
+──────────────────────────────────────────────────────────────────────────────
+
+  Location:   ~/.kircho/kircho.db  (SQLite — open with DB Browser for SQLite)
+  Tables:
+    billing   model, tokens_in, tokens_out, cost_usd, ts
+    models    alias, provider, api_base, api_key_env, enabled, status, last_check

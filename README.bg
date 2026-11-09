@@ -1,0 +1,92 @@
+# KIKO
+
+Минимален gateway за AI модели за лична и малко-екипна употреба.
+Fork на [litellm v1.104.2](https://github.com/BerriAI/litellm), опростен до основното.
+
+## Какво прави
+
+- Единна OpenAI-съвместима точка за Google Gemini, NVIDIA NIM и други AI доставчици
+- Локален REST API на `http://localhost:4000` — заместител на OpenAI клиенти
+- Всяко извикване се записва в локална SQLite база данни (токени + стойност) — без облак, без PostgreSQL, без Redis
+- Проста master-key автентикация
+- Пълно управление на модели чрез CLI — добавяне, премахване, активиране, деактивиране без редактиране на YAML
+
+## Изисквания
+
+- Python 3.12+
+- Достъп до интернет за връзка с API-тата на AI доставчиците
+- API ключове за доставчиците, които искате да използвате
+
+## Инсталация
+
+```bash
+pip install kiko
+```
+
+## Бърз старт
+
+```bash
+# Задайте променливи на средата (добавете в start.bat или shell скрипт)
+set MASTER_KEY=sk-izberi-tayna
+set GEMINI_API_KEY=tvoyat_google_ai_studio_klyuch
+
+# Зареди модели от конфигурацията (изпълни веднъж)
+kiko --config kiko-config.yaml --init-db
+
+# Стартирай прокси-то
+kiko --config kiko-config.yaml --port 4000
+
+# Тествай
+curl -H "Authorization: Bearer sk-izberi-tayna" ^
+     -H "Content-Type: application/json" ^
+     -d "{\"model\":\"gemini-flash\",\"messages\":[{\"role\":\"user\",\"content\":\"zdravey\"}]}" ^
+     http://localhost:4000/v1/chat/completions
+```
+
+## CLI команди
+
+```
+kiko --config PATH --port 4000        Стартира прокси сървъра
+kiko --config PATH --init-db          Зарежда модели от YAML конфигурация
+kiko --list-models                    Изброява всички активни модели
+kiko --add-model ALIAS \
+    --provider PROVIDER/ID \
+    --api-key-env VAR \
+    [--api-base URL]                  Добавя или обновява модел
+kiko --delete-model ALIAS             Премахва модел завинаги
+kiko --enable-model ALIAS             Активира деактивиран модел
+kiko --disable-model ALIAS            Деактивира модел (остава в DB)
+kiko --discover                       Пингва всички модели, обновява статус
+kiko --costs [--days N]               Показва отчет за разходите (по подразбиране 30 дни)
+```
+
+Виж `commands.txt` за пълна справка с примери.
+
+## API крайни точки
+
+| Метод | Път | Автентикация | Описание |
+|-------|-----|--------------|----------|
+| GET | `/health` | не | Проверка на живост |
+| GET | `/v1/models` | да | Списък модели |
+| POST | `/v1/chat/completions` | да | Chat completion |
+| POST | `/v1/completions` | да | Text completion |
+| POST | `/v1/embeddings` | да | Embeddings |
+
+## Конфигурация
+
+Виж `kiko-sample.yaml` за напълно коментиран пример на конфигурация.
+
+Ключовете **никога не се съхраняват в конфигурационни файлове** — винаги използвай променливи на средата.
+
+## Billing база данни
+
+Съхранява се в `~/.kircho/kircho.db` (SQLite). Замени с `KIKO_DB_PATH` env var.
+
+```bash
+kiko --costs --days 7    # последните 7 дни по модел
+```
+
+## Лиценз
+
+MIT — Copyright © 2026 Peter Kokosharov
+Базирано на litellm © 2023-2024 BerriAI
