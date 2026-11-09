@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Code tour - kiko-lite</title><style>
+:root{--bg:#fff;--fg:#1f2328;--mut:#656d76;--nav:#f6f8fa;--bd:#d0d7de;--code:#f6f8fa;--lnk:#0969da}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--nav:#161b22;--bd:#30363d;--code:#161b22;--lnk:#58a6ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,Segoe UI,sans-serif;display:flex;min-height:100vh}
+nav{width:250px;flex:none;background:var(--nav);border-right:1px solid var(--bd);padding:20px 16px;position:sticky;top:0;height:100vh;overflow:auto}
+nav h2{font-size:18px;margin:0 0 12px}nav a{display:block;padding:6px 10px;border-radius:6px;color:var(--fg);text-decoration:none}
+nav a:hover{background:var(--bd)}nav a.cur{background:var(--lnk);color:#fff}
+.lang{margin:0 0 14px;font-size:14px}.lang a{display:inline;padding:2px 6px}.lang a.cur{background:var(--lnk);color:#fff}
+main{flex:1;max-width:960px;padding:24px 40px;min-width:0}a{color:var(--lnk)}
+pre{background:var(--code);border:1px solid var(--bd);border-radius:6px;padding:12px;overflow:auto;font-size:13.5px;line-height:1.45}
+code{font-family:Consolas,Menlo,monospace;font-size:90%}:not(pre)>code{background:var(--code);padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;display:block;overflow:auto}th,td{border:1px solid var(--bd);padding:6px 12px;text-align:left}
+th{background:var(--nav)}pre.mermaid{background:transparent;border:none;text-align:center}
+pre.mermaid svg{cursor:zoom-in}
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9;cursor:zoom-out;overflow:auto}
+#lb.on{display:flex}#lb svg{background:#fff;width:96vw;height:94vh;max-width:96vw;max-height:94vh;padding:12px;border-radius:6px;flex:none}
+#lb.big{align-items:flex-start;justify-content:flex-start}#lb.big svg{max-width:none;max-height:none;width:200%;height:auto}
+h1,h2{border-bottom:1px solid var(--bd);padding-bottom:6px}
+@media(max-width:700px){body{display:block}nav{width:auto;height:auto;position:static}main{padding:16px}}
+</style></head><body>
+<nav><h2>kiko-lite</h2><div class="lang"><a href="../en/CODE-TOUR.html" class=cur>EN</a> <a href="../bg/CODE-TOUR.html">BG</a></div><a href="README.html">Overview</a><a href="ARCHITECTURE.html">Architecture</a><a href="MODEL-CLASSES.html">Model classes</a><a href="ROADMAP.html">Roadmap</a><a href="NUMBERS.html">Numbers</a><a href="CODE-TOUR.html" class=cur>Code tour</a></nav>
+<main id="content"></main>
+<div id="lb" title="click to close, double-click to zoom"></div>
+<script id="md" type="application/json">"# Code tour\n\nShort excerpts quoted exactly from the exported tree (the committed HEAD of branch kiko-main). Each has a file and line range and a link to the file.\n\n## 1. Resolver: from a class name to a model\n\nThe heart of the class idea. A DB alias glob wins; then a class keyword inside the requested name; then the `ANTHROPIC_DEFAULT_<CLASS>_MODEL` variable; then the name itself. Note the `break`: a class that matched but has no usable model falls through to the environment variable instead of failing.\n\n**[kiko_lite/resolver.py:250-265](../../../kiko_lite/resolver.py)**\n\n```python\n    def __call__(self, model: str) -> tuple[str, str] | None:\n        snap = self.catalog.snapshot()\n        for glob, target in snap.aliases:\n            if fnmatch.fnmatchcase(model, glob):\n                return self._named(snap, target)\n        ml = model.lower()\n        for name, kw in snap.classes:\n            if kw in ml:\n                best = snap.best(name)\n                if best is not None and best.mapped is not None:\n                    return best.pname, best.mapped.model_id\n                break  # class matched but no usable model: fall through to the env var\n        for name, kw in snap.classes:\n            if kw in ml and self.env.get(f\"ANTHROPIC_DEFAULT_{name}_MODEL\"):\n                return self._named(snap, self.env[f\"ANTHROPIC_DEFAULT_{name}_MODEL\"])\n        return self._named(snap, model)\n```\n\nThe choice inside a class is `Snapshot.best`: status `ok` first, then `unknown`, lowest priority, lowest id.\n\n**[kiko_lite/resolver.py:157-164](../../../kiko_lite/resolver.py)**\n\n```python\n    def best(self, cls: str) -> ModelInfo | None:\n        \"\"\"Best enabled, mappable model of a class: status ok first, then unknown, by priority then id.\"\"\"\n        for status in (\"ok\", \"unknown\"):\n            hits = [m for m in self.models if m.mapped and m.row[\"enabled\"] and m.row[\"model_class\"] == cls\n                    and m.row[\"status\"] == status]\n            if hits:\n                return min(hits, key=lambda m: (m.row[\"priority\"], m.row[\"id\"]))\n        return None\n```\n\n## 2. Anthropic to OpenAI streaming: tool calls\n\nOpenAI streams a tool call as fragments of a JSON string; Anthropic wants a `tool_use` block followed by `input_json_delta` events. `_tool_delta` keeps one record per call index, opens the Anthropic block when the name is known, and forwards argument fragments. Some providers omit `index`; then a new `id` means a new call.\n\n**[kiko_lite/providers/openai_compat.py:414-443](../../../kiko_lite/providers/openai_compat.py)**\n\n```python\n    def _tool_delta(self, tc: dict) -> list[tuple[str, dict]]:\n        idx = tc.get(\"index\")\n        if not isinstance(idx, int):  # some providers omit the index: a new id means a new call\n            tid = tc.get(\"id\") or \"\"\n            if self._calls and not (tid and tid != self._last_call_id):\n                idx = max(self._calls)\n            else:\n                idx = len(self._calls)\n        call = self._calls.setdefault(idx, {\"id\": \"\", \"name\": \"\", \"pending\": \"\", \"block\": None, \"closed\": False})\n        fn = tc.get(\"function\") or {}\n        if tc.get(\"id\") and not call[\"id\"]:\n            call[\"id\"] = str(tc[\"id\"])\n            self._last_call_id = call[\"id\"]\n        if fn.get(\"name\") and not call[\"name\"]:\n            call[\"name\"] = str(fn[\"name\"])\n        args = fn.get(\"arguments\")\n        if isinstance(args, dict):\n            args = json.dumps(args)\n        if isinstance(args, str) and args:\n            call[\"pending\"] += args\n        ev: list[tuple[str, dict]] = []\n        if call[\"block\"] is None and call[\"name\"] and not call[\"closed\"]:\n            ev += self._begin(\"tool\", {\"type\": \"tool_use\", \"id\": anthropic_id(call[\"id\"]),\n                                       \"name\": call[\"name\"], \"input\": {}})\n            call[\"block\"], self._open_call = self._index, idx\n        if call[\"block\"] is not None and not call[\"closed\"] and call[\"pending\"]:\n            ev.append(self._delta({\"type\": \"input_json_delta\", \"partial_json\": call[\"pending\"]}))\n            call[\"pending\"] = \"\"\n        return ev\n\n```\n\n`feed` turns one OpenAI chunk into Anthropic events (reasoning, text, tool calls, finish reason):\n\n**[kiko_lite/providers/openai_compat.py:444-463](../../../kiko_lite/providers/openai_compat.py)**\n\n```python\n    def feed(self, chunk: dict) -> list[tuple[str, dict]]:\n        raise_if_error(chunk)\n        ev = self._start()\n        u = chunk.get(\"usage\")\n        if isinstance(u, dict) and (u.get(\"prompt_tokens\") or u.get(\"completion_tokens\")):\n            self._usage = _usage(u)\n        choices = chunk.get(\"choices\") or []\n        choice = choices[0] if choices and isinstance(choices[0], dict) else {}\n        delta = choice.get(\"delta\") or {}\n        reasoning = delta.get(\"reasoning_content\") or delta.get(\"reasoning\")\n        if isinstance(reasoning, str) and reasoning:\n            ev += self._emit(\"thinking\", reasoning)\n        content = delta.get(\"content\")\n        if isinstance(content, str) and content:\n            ev += self._content(content)\n        for tc in delta.get(\"tool_calls\") or []:\n            if isinstance(tc, dict):\n                ev += self._tool_delta(tc)\n        if choice.get(\"finish_reason\"):\n            self._finish = choice[\"finish_reason\"]\n```\n\n## 3. Retry with ping keep-alive\n\n`send_with_retry` waits between attempts in slices of at most `PING_INTERVAL` seconds and calls `on_wait` for each slice. The gateway's `on_wait` puts a ping into the queue, so Claude Code keeps getting SSE pings while the router waits for a rate-limited provider.\n\n**[kikolib/retry.py:104-113](../../../kikolib/retry.py)**\n\n```python\n        delay = policy.delay_for(attempt, retry_after, remaining=remaining)\n        if resp is not None:\n            resp.close()\n        left = delay\n        while left > 0:\n            piece = min(left, PING_INTERVAL)\n            if on_wait is not None:\n                on_wait(piece, attempt, reason)\n            sleep(piece)\n            left -= piece\n\n```\n\nThe gateway side, in `_stream`: a worker thread does the retrying and the HTTP read; the generator sends a ping at once and again on every queue timeout.\n\n**[kiko_lite/app.py:415-419](../../../kiko_lite/app.py)**\n\n```python\n        def on_wait(piece: float, attempt: int, why: str) -> None:\n            if cancel.is_set():\n                raise _Cancelled\n            q.put((\"ping\",))\n\n```\n\n**[kiko_lite/app.py:450-458](../../../kiko_lite/app.py)**\n\n```python\n            yield sse.ping()  # the client gets a response at once, whatever the upstream does\n            while True:\n                try:\n                    item = q.get(timeout=self.ping_interval)\n                except queue.Empty:\n                    yield sse.ping()\n                    continue\n                kind = item[0]\n                if kind == \"ping\":\n```\n\n## 4. Keystore chain\n\nEnvironment first, then every available OS store in priority order. A store that is present but broken (for example no daemon) is skipped, not fatal. The stores are registered with `kikolib/factory.py`, which probes them.\n\n**[kikolib/keystore.py:257-268](../../../kikolib/keystore.py)**\n\n```python\ndef register_all() -> None:\n    \"\"\"Register the backends with the factory (done at import; call again after factory.clear()).\"\"\"\n    for name, probe, cls, prio in (\n        (\"wcm\", _probe_wcm, WcmStore, 10),\n        (\"keychain\", _probe_keychain, KeychainStore, 10),\n        (\"secret-tool\", _probe_secret_tool, SecretToolStore, 20),\n        (\"kwallet\", _probe_kwallet, KWalletStore, 30),\n        (\"dcop\", _probe_dcop, DcopStore, 40),\n    ):\n        factory.register(KIND, name, probe=probe, load=cls, priority=prio)\n\n\n```\n\n**[kikolib/keystore.py:279-305](../../../kikolib/keystore.py)**\n\n```python\ndef get_secret(name: str, env: Mapping[str, str] = os.environ) -> str | None:\n    \"\"\"Secret ``name``: environment variable first, then the OS stores; else None.\n\n    Without KIKO_KEYSTORE_IMPL every probe-ok store is tried in priority order until one\n    returns a value (a store that is present but unusable, e.g. no daemon, is skipped).\n    With KIKO_KEYSTORE_IMPL only that store is used.\n    \"\"\"\n    v = env.get(name) or env.get(name.upper())\n    if v:\n        return v\n    if os.environ.get(\"KIKO_KEYSTORE_IMPL\"):\n        stores = [_store()]\n    else:\n        stores = [impl for _, impl in factory.available(KIND)]\n    for store in stores:\n        if store is None:\n            continue\n        try:\n            value = store.get(name)\n        except Exception:\n            value = None\n        if value:\n            return value\n    return None\n\n\ndef set_secret(name: str, value: str) -> bool:\n```\n\n## 5. SQLite schema and migration\n\nThe schema is versioned with `PRAGMA user_version`. A database already at the current version is not written at all (a write-protected file must still open). Older databases (kiko-full or kiko-lite v1) get the missing columns and tables, and the four default classes are seeded with `INSERT OR IGNORE`.\n\n**[kiko_lite/db.py:95-103](../../../kiko_lite/db.py)**\n\n```python\n_V2 = \"\"\"\nCREATE TABLE IF NOT EXISTS model_classes (\n    name    TEXT PRIMARY KEY,\n    keyword TEXT NOT NULL UNIQUE,\n    role    TEXT NOT NULL DEFAULT '',\n    sort    INTEGER NOT NULL DEFAULT 100\n);\n\"\"\"\n\n```\n\n**[kiko_lite/db.py:204-225](../../../kiko_lite/db.py)**\n\n```python\n    def _migrate(con: sqlite3.Connection) -> None:\n        if con.execute(\"PRAGMA user_version\").fetchone()[0] >= SCHEMA_VERSION:\n            return  # already migrated: no write at all (a write-protected file must still open)\n        con.executescript(_SCHEMA)\n        for table, column, definition in _COLUMNS:\n            if column not in Database._columns(con, table):\n                try:\n                    con.execute(f\"ALTER TABLE {table} ADD COLUMN {column} {definition}\")\n                except sqlite3.OperationalError as e:\n                    if \"duplicate column name\" not in str(e).lower():  # locked, read-only, disk full ...\n                        raise\n        con.executescript(_V1)\n        con.executescript(_V2)\n        con.executemany(\"INSERT OR IGNORE INTO model_classes(name, keyword, role, sort) VALUES(?,?,?,?)\",\n                        DEFAULT_CLASSES)\n        for table, column, _ in _COLUMNS:  # never mark a half-migrated DB as migrated\n            if column not in Database._columns(con, table):\n                raise sqlite3.OperationalError(f\"migration incomplete: {table}.{column} is missing\")\n        if con.execute(\"PRAGMA user_version\").fetchone()[0] < SCHEMA_VERSION:\n            con.execute(f\"PRAGMA user_version={SCHEMA_VERSION}\")\n        con.commit()\n\n```\n\n## Where to read next\n\n- [kiko_lite/app.py](../../../kiko_lite/app.py): `_Gateway`, `_plan`, `_stream`\n- [kiko_lite/providers/gemini.py](../../../kiko_lite/providers/gemini.py): the native Gemini translator\n- [kikolib/server.py](../../../kikolib/server.py): the threaded server and SSE sending\n- [tests/kiko/](../../../tests/kiko/): `test_kiko_lite_*.py` show how each part is used\n"</script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+const src = JSON.parse(document.getElementById("md").textContent);
+const el = document.getElementById("content");
+const r = new marked.Renderer();
+r.code = (code, lang) => {
+  const t = typeof code === "object" ? code.text : code, l = typeof code === "object" ? code.lang : lang;
+  const esc = t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return l === "mermaid" ? '<pre class="mermaid">' + esc + "</pre>" : '<pre><code>' + esc + "</code></pre>";
+};
+el.innerHTML = marked.parse(src, {renderer: r});
+el.querySelectorAll("a[href]").forEach(a => {
+  const h = a.getAttribute("href");
+  if (/^[A-Za-z0-9_-]+[.]md(#.*)?$/.test(h)) a.setAttribute("href", h.replace(".md", ".html"));
+  else if (!/^([a-z][a-z0-9+.-]*:|#|\/)/i.test(h)) a.setAttribute("href", "../" + h);  // the html is one folder deeper than the md
+});
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+mermaid.initialize({startOnLoad: false, theme: dark ? "dark" : "default"});
+const pre = [...el.querySelectorAll("pre.mermaid")];
+pre.forEach(p => { p.dataset.src = p.textContent; });
+try {
+  await mermaid.run({querySelector: "pre.mermaid"});
+} catch (e) {
+  console.error(e);
+} finally {
+  // scroll to the #anchor only now: the diagrams change the page height
+  if (location.hash) { const t = document.getElementById(decodeURIComponent(location.hash.slice(1))); if (t) t.scrollIntoView(); }
+}
+// click to enlarge: the overlay always shows the light-theme diagram on white, so it is readable in dark mode too
+const lb = document.getElementById("lb");
+let n = 0;
+pre.forEach(p => {
+  const sv = p.querySelector("svg");
+  if (!sv) return;
+  sv.setAttribute("data-tip", "1");
+  p.title = "click to enlarge";
+  sv.addEventListener("click", async () => {
+    let svg = sv.outerHTML;
+    if (dark) {
+      try {
+        mermaid.initialize({startOnLoad: false, theme: "default"});
+        svg = (await mermaid.render("lbd" + (n++), p.dataset.src)).svg;
+      } catch (e) {}
+      mermaid.initialize({startOnLoad: false, theme: "dark"});
+    }
+    const t = document.createElement("div");
+    t.innerHTML = svg;
+    const c = t.querySelector("svg");
+    c.removeAttribute("width"); c.removeAttribute("height"); c.style.removeProperty("max-width");
+    if (!c.getAttribute("viewBox")) {
+      const b = sv.getBBox(); c.setAttribute("viewBox", "0 0 " + b.width + " " + b.height);
+    }
+    lb.querySelector("svg")?.remove();
+    lb.appendChild(c);
+    lb.className = "on";
+  });
+});
+lb.addEventListener("click", e => {
+  if (e.detail === 1) setTimeout(() => { if (!lb.dataset.z) lb.className = ""; lb.dataset.z = ""; }, 250);
+});
+lb.addEventListener("dblclick", () => { lb.dataset.z = "1"; lb.className = lb.className === "on big" ? "on" : "on big"; });
+document.addEventListener("keydown", e => { if (e.key === "Escape") lb.className = ""; });
+</script></body></html>

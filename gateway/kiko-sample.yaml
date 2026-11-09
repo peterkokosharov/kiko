@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
+# LLM: Anthropic Sonnet
+# kiko-sample.yaml — KIKO model configuration sample
+# -------------------------------------------------------
+# Copy this file to ~/.kircho/kiko-config.yaml and edit.
+# Keys are NEVER stored here — use environment variables.
+# Run: kiko --config kiko-config.yaml --init-db
+# -------------------------------------------------------
+
+model_list:
+
+  # ── Google Gemini ──────────────────────────────────────────────────────────
+
+  # Fast and cheap — good default for most tasks
+  - model_name: gemini-flash            # Short alias used in API calls
+    litellm_params:
+      model: gemini/gemini-2.0-flash-lite   # LiteLLM model string
+      api_key: os.environ/GEMINI_API_KEY    # Set: set GEMINI_API_KEY=...
+
+  # More capable — use for complex reasoning
+  - model_name: gemini-pro
+    litellm_params:
+      model: gemini/gemini-1.5-pro
+      api_key: os.environ/GEMINI_API_KEY
+
+  # Thinking model — extended reasoning, higher cost
+  - model_name: gemini-thinking
+    litellm_params:
+      model: gemini/gemini-2.0-flash-thinking-exp
+      api_key: os.environ/GEMINI_API_KEY
+
+  # ── NVIDIA NIM ─────────────────────────────────────────────────────────────
+  # NIM models require api_base; get key from build.nvidia.com
+
+  - model_name: nemotron-super
+    litellm_params:
+      model: openai/nvidia/nemotron-3-super-120b-a12b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+
+  - model_name: nemotron-ultra
+    litellm_params:
+      model: openai/nvidia/llama-3.1-nemotron-ultra-253b-v1
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+
+  # ── OpenAI (optional) ──────────────────────────────────────────────────────
+
+  # - model_name: gpt-4o
+  #   litellm_params:
+  #     model: gpt-4o
+  #     api_key: os.environ/OPENAI_API_KEY
+
+# ── General settings (optional) ────────────────────────────────────────────
+
+general_settings:
+  disable_billing: false    # Set to true to skip SQLite cost logging
+  # billing_db: C:/custom/path/kircho.db   # Override default DB location
+
+# ── LiteLLM pass-through settings (optional) ───────────────────────────────
+
+litellm_settings:
+  drop_params: true         # Ignore unsupported params instead of raising errors

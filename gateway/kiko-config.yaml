@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
+# LLM: Anthropic Sonnet
+# KIKO model configuration — checked-in example; copy to your home dir and edit.
+# Keys are NEVER stored here — inject via environment variables only (Rule 1).
+# Run: kircho-proxy --config kiko-config.yaml --port 4000
+
+model_list:
+
+  # ── Google Gemini ─────────────────────────────────────────────────────────
+  - model_name: gemini-flash
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: gemini-flash-lite
+    litellm_params:
+      model: gemini/gemini-3.5-flash-lite
+      api_key: os.environ/GEMINI_API_KEY
+
+  # ── NVIDIA NIM (Nemotron) ─────────────────────────────────────────────────
+  - model_name: nemotron-super
+    litellm_params:
+      model: openai/nvidia/nemotron-3-super-120b-a12b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+
+  - model_name: nemotron-ultra
+    litellm_params:
+      model: openai/nvidia/nemotron-3-ultra-550b-a55b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+
+litellm_settings:
+  drop_params: true

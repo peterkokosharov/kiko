@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant C as Client
+    participant K as kiko
+    participant V as _validate_token
+    participant M as _master_key()
+    C->>K: request + Authorization / x-api-key / x-goog-api-key
+    K->>V: token
+    V->>M: read env MASTER_KEY
+    M-->>V: key (or None)
+    alt no MASTER_KEY configured
+        V-->>C: 401 authentication_error
+    else token matches
+        V-->>K: OK
+    else token mismatch
+        V-->>C: 401 authentication_error
+    end

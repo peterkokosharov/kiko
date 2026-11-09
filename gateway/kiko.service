@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
+# LLM: Anthropic Opus
+[Unit]
+Description=KIKO LLM proxy server
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3.12 /usr/local/bin/kiko --config %h/.kircho/kiko-config.yaml --host 127.0.0.1 --port 4000
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

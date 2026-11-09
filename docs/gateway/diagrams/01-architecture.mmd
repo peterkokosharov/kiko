@@ -1,0 +1,10 @@
+graph TB
+    CC["Claude Code\nANTHROPIC_BASE_URL"] -->|POST /v1/messages| K
+    GEM["Gemini CLI\nGEMINI_API_KEY"] -->|POST /v1beta/models/…:generateContent| K
+    COD["Codex CLI\n~/.codex/config.toml"] -->|POST /v1/responses| K
+    K["kiko-proxy\n:4000"] --> LLM["LiteLLM\nacompletion / anthropic_messages / aresponses"]
+    LLM -->|HTTPS| NV["NVIDIA NIM"]
+    LLM -->|HTTPS| GA["Google Gemini API"]
+    LLM -->|HTTPS| OT["Other backends"]
+    TR["kiko-tray\nGTK3 / Win32"] -.->|subprocess| K
+    K --- DB[("SQLite\nbilling.db")]

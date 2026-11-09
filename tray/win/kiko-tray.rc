@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: MIT
+ * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * Embeds the application manifest (resource type 24 RT_MANIFEST, id 1) and version info.
+ */
+#include <winver.h>
+
+1 24 "kiko-tray.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 0,1,0,0
+PRODUCTVERSION 0,1,0,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "FileDescription", "kiko-tray"
+            VALUE "ProductName", "kiko-tray"
+            VALUE "FileVersion", "0.1.0"
+            VALUE "LegalCopyright", "MIT, Peter Kokosharov"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

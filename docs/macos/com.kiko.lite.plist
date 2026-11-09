@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Author: Peter Kokosharov <peter.kokosharov@gmail.com> -->
+<!-- UNVERIFIED sample, never loaded on a Mac.  Copy to ~/Library/LaunchAgents/com.kiko.lite.plist and
+     replace /ABSOLUTE/PATH/TO/kiko-lite with the real path and both REPLACE_WITH_HOME with your home folder (launchd does not expand ~ or $HOME).  The tray loads and kickstarts it with
+     launchctl bootstrap/kickstart/bootout gui/<uid>/com.kiko.lite -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.kiko.lite</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/ABSOLUTE/PATH/TO/kiko-lite</string>
+    <string>serve</string>
+    <string>--no-auth</string>
+    <string>--host</string>
+    <string>127.0.0.1</string>
+  </array>
+  <key>RunAtLoad</key><false/>
+  <key>StandardErrorPath</key><string>REPLACE_WITH_HOME/Library/Logs/kiko-lite.err.log</string>
+  <key>StandardOutPath</key><string>REPLACE_WITH_HOME/Library/Logs/kiko-lite.out.log</string>
+</dict>
+</plist>

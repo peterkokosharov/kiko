@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
+# LLM: Anthropic Opus
+# kiko-lite systemd USER unit template. install-service.sh writes the real folder into it.
+[Unit]
+Description=kiko-lite model router (user service)
+
+[Service]
+# serve sends READY=1 after it has bound the port, so Type=notify is right (the launcher uses exec).
+Type=notify
+# install-service.sh replaces @KIKO_DIR@ (and the quoted copy) with the real absolute unpack folder.
+WorkingDirectory=@KIKO_DIR@
+ExecStart="@KIKO_DIR_Q@/kiko-lite" serve --no-auth --rss-limit-mb 1024
+# No --host / --port: serve reads the proxy host and port from kiko.toml (see kikolib/config.py). --no-auth is only
+# accepted on a loopback host; with another host in kiko.toml the service refuses to start.
+# --rss-limit-mb: a process over the limit drains and exits with code 75; Restart=on-failure restarts it.
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# install-service.sh writes the config folder here when KIKO_CONFIG_DIR was set at install time:
+# @KIKO_CONFIG_ENV@
+# No EnvironmentFile on purpose: kiko-lite reads <config folder>/.env itself and re-reads it when it changes.
+# Keys turned into real environment variables by systemd would always win over the file and stop that reload.
+
+[Install]
+WantedBy=default.target

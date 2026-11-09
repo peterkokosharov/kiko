@@ -1,0 +1,28 @@
+graph LR
+    subgraph OpenAI-compat
+        A["POST /v1/chat/completions"]
+        B["POST /v1/completions"]
+        C["POST /v1/embeddings"]
+    end
+    subgraph Anthropic
+        D["POST /v1/messages"]
+        E["POST /v1/messages  stream=true"]
+        F["POST /v1/messages/count_tokens"]
+    end
+    subgraph Gemini
+        G["POST /v1beta/models/:m:generateContent"]
+        H["POST /v1beta/models/:m:streamGenerateContent"]
+        I["POST /v1beta/models/:m:countTokens"]
+        G2["POST /models/:m:generateContent  (no prefix)"]
+    end
+    subgraph Codex
+        J["POST /v1/responses"]
+        K["POST /v1/responses  stream=true"]
+    end
+    subgraph Admin
+        L["GET /health"]
+        M["GET /v1/models"]
+        N["POST /v1/messages/count_tokens"]
+    end
+    A & B & C & D & E & F & G & G2 & H & I & J & K --> P["_prepare()\nsecurity chokepoint"]
+    P --> LLM["LiteLLM"]

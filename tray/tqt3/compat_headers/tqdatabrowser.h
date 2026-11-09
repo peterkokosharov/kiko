@@ -1,0 +1,1 @@
+/usr/include/tqt3/ntqdatabrowser.h

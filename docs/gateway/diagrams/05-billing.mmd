@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant K as kiko route
+    participant L as litellm
+    participant W as LoggingWorker
+    participant S as KikoSQLiteLogger
+    participant DB as SQLite
+    K->>L: acompletion(…)
+    L-->>K: response
+    L--)W: enqueue success_event (async task)
+    W->>S: async_log_success_event
+    S->>DB: INSERT (model, tokens, cost_usd, route, ts)
+    Note over K,DB: stream: billing fires after iterator exhausted

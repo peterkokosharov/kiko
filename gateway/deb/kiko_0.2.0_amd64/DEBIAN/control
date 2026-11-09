@@ -1,0 +1,8 @@
+Package: kiko
+Version: 0.2.0
+Architecture: amd64
+Maintainer: Peter Kokosharov <peter.kokosharov@gmail.com>
+Depends: python3.12, python3-pip
+Description: KIKO — LLM proxy server (Home Edition)
+ Lightweight OpenAI-compatible proxy backed by LiteLLM.
+ Runs as a user systemd service on port 4000.

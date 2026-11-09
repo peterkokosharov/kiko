@@ -1,0 +1,1 @@
+/usr/include/tqt3/ntqgb18030codec.h

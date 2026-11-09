@@ -1,0 +1,7 @@
+flowchart TD
+    A["Incoming request\nmodel + body"] --> B["_resolve_model_alias()\nenv vars → config globs"]
+    B --> C["Strip dangerous fields\napi_key · api_base · base_url\nextra_headers · mock_response\ncustom_llm_provider · model_info"]
+    C --> D{"model in\n_model_list?"}
+    D -- No --> E["HTTPException 404\nnot_found_error"]
+    D -- Yes --> F["Inject server litellm_params\napi_base · api_key from config"]
+    F --> G["litellm call\nacompletion / anthropic_messages\naresponses / token_counter"]
