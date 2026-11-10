@@ -2,11 +2,13 @@
 
 Everything on this page is **planned** unless it says otherwise.
 
-## Watchdog and failover inside a class (planned, task #90)
+## Watchdog and failover inside a class (DONE, task #90)
 
-Today kiko-lite picks the best model of a class from the database (`Snapshot.best`) but does not check whether the
-provider is alive, and it does not switch to the next model of the class when one breaks. The retry layer
-(`kikolib/retry.py`) retries the same upstream on 429/5xx/connect errors only.
+Implemented: `HealthProber` (background thread, `health_check_interval` setting) probes enabled models and writes
+`models.status` (ok/error) via `status_hook`. The resolver's `best()` prefers ok over unknown, and `candidates()`
+returns all models of a class sorted by status (ok, unknown, error) for failover. The retry layer retries the
+same upstream on 429/5xx/connect errors; failover to the next candidate happens in the gateway. Verified by
+75 tests in `test_kiko_lite_failover.py`.
 
 Honest history: the older LiteLLM-based kiko-full had a background health loop (`_health_loop`). kiko-lite does
 not have one yet. The `models.status` and `last_check` columns exist (copied from kiko-full) but nothing in kiko-lite
