@@ -7,7 +7,7 @@ No sudo is needed for the install itself; sudo is only needed to install the `.d
 ## Option A — from a checkout (no sudo)
 
 ```bash
-git clone -b fix/mint-tray-build https://github.com/peterkokosharov/kiko.git ~/kiko
+git clone https://github.com/peterkokosharov/kiko.git ~/kiko
 cd ~/kiko
 bash tray/tools/kiko install
 ```
@@ -19,7 +19,7 @@ https://build.nvidia.com/ and https://aistudio.google.com/apikey. Keys go into G
 ## Option B — build and install the .deb
 
 ```bash
-git clone -b fix/mint-tray-build https://github.com/peterkokosharov/kiko.git ~/kiko
+git clone https://github.com/peterkokosharov/kiko.git ~/kiko
 cd ~/kiko
 bash packaging/build-deb.sh
 sudo apt install -y libsecret-tools curl          # package dependencies

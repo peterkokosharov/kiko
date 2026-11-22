@@ -5,7 +5,7 @@ Personal AI gateway and system tray front-end.
 ## Install
 
 ```bash
-git clone -b fix/mint-tray-build https://github.com/peterkokosharov/kiko.git ~/kiko
+git clone https://github.com/peterkokosharov/kiko.git ~/kiko
 cd ~/kiko && bash tray/tools/kiko install
 kiko doctor
 ```
