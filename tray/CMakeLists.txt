@@ -2,8 +2,8 @@
 # Author: Peter Kokosharov <peter.kokosharov@gmail.com>
 #
 # kiko-tray native build.  One file, platform picked automatically:
-#   Windows (MSVC + Windows SDK, or MinGW)  -> native/win32  (pure Win32 API)
-#   macOS -> native/macos (Cocoa); Linux: -DKT_GUI=gtk (default, GTK3 + XApp) or -DKT_GUI=qt (Qt6/Qt5 Widgets)
+#   Windows (MSVC + Windows SDK, or MinGW)  -> win/    (pure Win32 API)
+#   macOS -> mac/ (Cocoa); Linux: -DKT_GUI=gtk (default, GTK3 + XApp) or -DKT_GUI=qt (Qt6/Qt5 Widgets)
 # Options:
 #   -DKT_BUILD_GUI=OFF     build only the portable core and its tests (no GUI toolkit needed)
 #   -DKT_BUILD_TESTS=OFF   skip the tests
@@ -37,7 +37,7 @@ function(kt_warnings target)
 endfunction()
 
 # ---- cJSON: vendored copy first, FetchContent as the fallback ----------------------------------
-set(KT_CJSON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cjson")
+set(KT_CJSON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/common/third_party/cjson")
 if(EXISTS "${KT_CJSON_DIR}/cJSON.c" AND EXISTS "${KT_CJSON_DIR}/cJSON.h")
   set(KT_CJSON_SRC_DIR "${KT_CJSON_DIR}")
   message(STATUS "cJSON: using the vendored copy in ${KT_CJSON_DIR}")
@@ -56,7 +56,7 @@ elseif(KT_FETCH_CJSON)
   set(KT_CJSON_SRC_DIR "${cjson_src_SOURCE_DIR}")
   message(STATUS "cJSON: downloaded v1.7.18 to ${KT_CJSON_SRC_DIR}")
 else()
-  message(FATAL_ERROR "cJSON not found. Put cJSON.c and cJSON.h into native/third_party/cjson "
+  message(FATAL_ERROR "cJSON not found. Put cJSON.c and cJSON.h into common/third_party/cjson "
                       "(see its README.md) or configure with -DKT_FETCH_CJSON=ON.")
 endif()
 
@@ -89,8 +89,8 @@ set_property(CACHE KT_GUI PROPERTY STRINGS gtk qt)
 if(KT_BUILD_GUI)
   if(WIN32)
     add_executable(kiko-tray WIN32
-      win32/win_main.c win32/win_view.c win32/win_dialogs.c win32/win_host.c win32/kiko-tray.rc)
-    target_include_directories(kiko-tray PRIVATE win32)
+      win/win_main.c win/win_view.c win/win_dialogs.c win/win_host.c win/kiko-tray.rc)
+    target_include_directories(kiko-tray PRIVATE win)
     target_link_libraries(kiko-tray PRIVATE kt_common user32 gdi32 shell32 comctl32 advapi32 ole32)
     kt_warnings(kiko-tray)
     if(MSVC)
@@ -106,11 +106,11 @@ if(KT_BUILD_GUI)
     if(NOT KT_COCOA)
       message(FATAL_ERROR "Cocoa framework not found (install the Xcode Command Line Tools)")
     endif()
-    add_executable(kiko-tray MACOSX_BUNDLE macos/mac_main.m macos/mac_view.m macos/mac_host.m)
-    target_include_directories(kiko-tray PRIVATE macos)
+    add_executable(kiko-tray MACOSX_BUNDLE mac/mac_main.m mac/mac_view.m mac/mac_host.m)
+    target_include_directories(kiko-tray PRIVATE mac)
     target_link_libraries(kiko-tray PRIVATE kt_common ${KT_COCOA})
     set_target_properties(kiko-tray PROPERTIES
-      MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macos/Info.plist.in"   # LSUIElement: no Dock icon
+      MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/mac/Info.plist.in"   # LSUIElement: no Dock icon
       MACOSX_BUNDLE_BUNDLE_NAME "kiko-tray"
       MACOSX_BUNDLE_GUI_IDENTIFIER "com.kiko.tray"
       MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
@@ -120,8 +120,8 @@ if(KT_BUILD_GUI)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
     pkg_check_modules(XAPP xapp)   # optional: preinstalled on Linux Mint (libxapp-dev to build)
-    add_executable(kiko-tray gtk/gtk_main.c gtk/gtk_view.c gtk/gtk_host.c)
-    target_include_directories(kiko-tray PRIVATE gtk ${GTK3_INCLUDE_DIRS})
+    add_executable(kiko-tray gtk3/gtk_main.c gtk3/gtk_view.c gtk3/gtk_host.c)
+    target_include_directories(kiko-tray PRIVATE gtk3 ${GTK3_INCLUDE_DIRS})
     target_link_directories(kiko-tray PRIVATE ${GTK3_LIBRARY_DIRS})
     target_link_libraries(kiko-tray PRIVATE kt_common ${GTK3_LIBRARIES})
     target_compile_options(kiko-tray PRIVATE ${GTK3_CFLAGS_OTHER} -Wno-deprecated-declarations)
@@ -151,8 +151,8 @@ if(KT_BUILD_GUI)
       set(KT_QT_WIDGETS Qt5::Widgets)
       message(STATUS "Qt: Qt6 not found, using Qt5")
     endif()
-    add_executable(kiko-tray qt/qt_main.cpp qt/qt_view.cpp qt/qt_host.cpp)
-    target_include_directories(kiko-tray PRIVATE qt)
+    add_executable(kiko-tray qt6/qt_main.cpp qt6/qt_view.cpp qt6/qt_host.cpp)
+    target_include_directories(kiko-tray PRIVATE qt6)
     target_link_libraries(kiko-tray PRIVATE kt_common ${KT_QT_WIDGETS})
     if(NOT MSVC)
       target_compile_options(kiko-tray PRIVATE -Wall -Wextra)
@@ -168,8 +168,8 @@ endif()
 if(KT_BUILD_TESTS)
   enable_testing()
   foreach(t test_json test_http test_mask test_util_icon test_presenter test_socket)
-    add_executable(${t} tests/${t}.c)
-    target_include_directories(${t} PRIVATE tests)
+    add_executable(${t} common/tests/${t}.c)
+    target_include_directories(${t} PRIVATE common/tests)
     target_link_libraries(${t} PRIVATE kt_common)
     kt_warnings(${t})
     add_test(NAME ${t} COMMAND ${t})

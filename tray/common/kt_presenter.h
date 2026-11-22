@@ -33,7 +33,7 @@ typedef struct kt_host {
 
 typedef struct kt_config {
     int         port;                /* kiko's loopback port, default 4000 */
-    const char *api_token;           /* Bearer token for /kiko/v1/*; NULL = none.  Never logged. */
+    const char *api_token;           /* Bearer token for the /kiko/v1 endpoints; NULL = none. Never logged. */
     const char *token_source;        /* text for the Settings dialog, e.g. "env KIKO_API_TOKEN" */
     const char *command_text;        /* how kiko is started, for the Settings dialog */
     const char *version;             /* tray version string for About */
