@@ -67,7 +67,7 @@ int main(int argc, char **argv)
     cfg.port = port;
     cfg.api_token = token;
     cfg.token_source = token_source;
-    cfg.command_text = "systemctl --user start|stop|restart kiko-lite";
+    cfg.command_text = "kiko start|stop|restart";
     cfg.version = KT_VERSION;
     cfg.poll_interval_ms = 5000;
     cfg.start_grace_ms = 30000;

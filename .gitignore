@@ -9,3 +9,5 @@ venv/
 CMakeCache.txt
 CMakeFiles/
 build/
+dist/
+*.deb

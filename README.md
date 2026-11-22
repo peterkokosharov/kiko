@@ -2,6 +2,24 @@
 
 Personal AI gateway and system tray front-end.
 
+## Install
+
+```bash
+git clone -b fix/mint-tray-build https://github.com/peterkokosharov/kiko.git ~/kiko
+cd ~/kiko && bash tray/tools/kiko install
+kiko doctor
+```
+
+No sudo for the install itself; keys go into the desktop keyring. For `.deb` packages:
+
+```bash
+bash packaging/build-deb.sh           # gateway -> kiko_0.3.0_all.deb
+bash packaging/build-tray-gtk3-deb.sh # GTK3 tray -> kiko-tray-gtk3_0.1.0_amd64.deb
+sudo apt install -y ./dist/kiko_0.3.0_all.deb ./dist/kiko-tray-gtk3_0.1.0_amd64.deb
+```
+
+See [`docs/INSTALL.md`](docs/INSTALL.md) for keys, Claude Code, the GTK3 build prerequisites and uninstall.
+
 ## Components
 
 | Folder | What |
