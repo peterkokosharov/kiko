@@ -584,6 +584,12 @@ class Database:
         with self._write() as con:
             return con.execute("UPDATE models SET enabled=? WHERE alias=?", (int(enabled), alias)).rowcount > 0
 
+    def set_model_class(self, alias: str, model_class: str) -> bool:
+        """Move a model to another class. True if the row exists (the caller validates the class name)."""
+        with self._write() as con:
+            return con.execute("UPDATE models SET model_class=? WHERE alias=?",
+                               (model_class, alias)).rowcount > 0
+
     def set_thinking(self, alias: str, mode: str) -> bool:
         """Set the per-model thinking switch (one of ``THINKING_MODES``; "default" clears it). True if the row exists."""
         if mode not in THINKING_MODES:

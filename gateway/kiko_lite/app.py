@@ -534,6 +534,8 @@ class _Gateway:
         401 there is OpenAI-shaped; every other route is checked here."""
         if req.path in OPENAI_PATHS:
             return
+        if req.path.startswith("/kiko/v1/"):
+            return  # the management API has its own token (docs/API-CONTRACT.md)
         self.authenticate(req)
 
     def authenticate(self, req: Request) -> None:

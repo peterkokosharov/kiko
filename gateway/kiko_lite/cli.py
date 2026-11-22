@@ -36,7 +36,7 @@ from typing import Any
 
 from kikolib import config as kconfig, dotenv, factory, http as _http, keystore, logs as klogs, server as kserver, yaml_lite  # noqa: F401
 from . import app as lite
-from . import prices, ui
+from . import management, prices, ui
 from .keys import WatchedEnv, dotenv_values as _dotenv_values, key_source as _key_source
 from . import providers as ptable
 from .db import CLASSES, Database, SCHEMA_VERSION, THINKING_MODES, TOOLSHIM_MODES, check_timeout, default_path, fmt_timeout
@@ -154,7 +154,8 @@ def cmd_serve(args: argparse.Namespace) -> int:
     probe_timeout = kconfig.value("proxy.probe_timeout")  # [proxy] probe_timeout (default 20 s)
     app = build_db_app(db, None if no_auth else master, secret=secret, auth=not no_auth,
                        upstream_timeout=upstream_timeout, probe_timeout=probe_timeout)
-    ui.install(app, db, db_path, port, env_file)  # read-only status page: GET /ui (loopback only)
+    page = ui.install(app, db, db_path, port, env_file)  # read-only status page: GET /ui (loopback only)
+    management.install(app, db, db_path, port, env_file, page)  # tray contract: /kiko/v1/* (own token)
     print(f"kiko-lite on http://{host}:{port}  db={db_path}  status page: http://127.0.0.1:{port}/ui", flush=True)
     app.results.start()  # background writer of the billing and text rows (flushed in the finally below)
     app.health.start()  # background prober (setting health_check_interval; 0 = off)

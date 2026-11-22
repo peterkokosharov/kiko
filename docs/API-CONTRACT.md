@@ -1,9 +1,9 @@
 # kiko management API contract (v1) — what the tray needs
 
-Status: **contract only**. kiko-lite has only `GET /health` today; the endpoints below are to be built
-in Python as a separate task, FROM THIS DOCUMENT. The tray is written against it and degrades
-gracefully until it exists (every dialog then shows "Management API not available"; only the
-`/health` state, icon colour and start/stop work).
+Status: **implemented in kiko-lite** (`gateway/kiko_lite/management.py`, verified on Linux Mint 22.3).
+`GET /health` stays unauthenticated; the tray reads it for the icon colour. Every dialog below is served
+by `/kiko/v1/*`. A gateway that predates this module still degrades gracefully: the dialogs then show
+"Management API not available" and only the `/health` state, icon colour and start/stop work.
 
 ## General rules
 
