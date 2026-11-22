@@ -9,6 +9,7 @@ ST="${SECRET_TOOL:-secret-tool}"
 if ! command -v "$ST" >/dev/null 2>&1 && [ -x /tmp/opencode/mint-deps/root/usr/bin/secret-tool ]; then
   ST=/tmp/opencode/mint-deps/root/usr/bin/secret-tool   # local dev fallback on this machine
 fi
+KEY_USER="${KIKO_KEY_USER:-$(id -un)}"
 
 store() {
   local key="$1" value
@@ -16,7 +17,7 @@ store() {
   IFS= read -r -s value || true
   printf '\n' >&2
   [ -n "$value" ] || { printf ' skipped (empty)\n' >&2; return 0; }
-  printf '%s' "$value" | "$ST" store --label="/peterk/$key" service /peterk key "$key" username peterk
+  printf '%s' "$value" | "$ST" store --label="/peterk/$key" service /peterk key "$key" username "$KEY_USER"
   printf ' stored in GNOME Keyring\n' >&2
 }
 
@@ -31,4 +32,4 @@ store GITHUB_TOKEN
 
 echo >&2
 echo "Verify without printing a value:" >&2
-echo "  $ST lookup service /peterk key NVIDIA_API_KEY username peterk >/dev/null && echo ok" >&2
+echo "  $ST lookup service /peterk key NVIDIA_API_KEY username $KEY_USER >/dev/null && echo ok" >&2

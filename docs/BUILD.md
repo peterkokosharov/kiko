@@ -1,8 +1,9 @@
 # Building kiko-tray (native)
 
 One top-level `tray/CMakeLists.txt` (CMake >= 3.16). The platform layer is picked automatically.
-**Nothing here has been compiled by its author** (no compiler on the authoring machine): expect to fix
-small compile errors on the first build and report them.
+The GTK3 build was verified on Linux Mint 22.3 Cinnamon (6/6 tests). The other four ports were not
+compiled by the author (no compiler on the authoring machine): expect to fix small compile errors on
+the first build and report them. See `docs/BUILD-MATRIX.md`.
 
 Common options: `-DKT_BUILD_GUI=OFF` (core + tests only, no toolkit needed), `-DKT_BUILD_TESTS=OFF`,
 `-DKT_FETCH_CJSON=OFF`, `-DKT_GUI=gtk|qt` (Linux).
