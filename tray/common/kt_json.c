@@ -7,7 +7,9 @@ kt_json *kt_json_parse(const char *text, size_t len)
 {
     const char *end = NULL;
     if (!text) return NULL;
-    return cJSON_ParseWithLengthOpts(text, len, &end, 1);
+    /* All callers pass NUL-terminated text; cJSON's require_null_terminated check needs the
+     * terminator included in buffer_length, otherwise it rejects the final '}' of strlen() text. */
+    return cJSON_ParseWithLengthOpts(text, len + 1, &end, 1);
 }
 
 void kt_json_free(kt_json *j) { cJSON_Delete(j); }
