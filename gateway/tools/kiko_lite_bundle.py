@@ -13,9 +13,10 @@ Writes ``kiko-lite-<short git sha, else YYYYMMDD>.zip`` holding ONLY ``kikolib/`
 ``docs/LINUX-INSTALL.md``, ``docs/GITHUB-DEPLOY.md`` (never a Bulgarian ``.bg.`` or ``bg/`` file), ``kiko-lite.service`` and
 ``install-service.sh`` (systemd user service, from ``tools/``), the kiko-lite unit tests
 (every ``tests/kiko/test_kiko_lite_*.py`` except the bundle test itself, plus ``conftest.py``), ``README.md`` (from
-``docs/KIKO-LITE-README.md``), ``LICENSE`` (from ``docs/KIKO-LITE-LICENSE``; the repo LICENSE also covers
-kiko-full), a ``VERSION`` file ("kiko-lite <sha> <commit date>") and the launchers ``kiko-lite`` (sh) and
-``kiko-lite.cmd`` (Windows). The file list is sorted and the zip timestamps are fixed, so the same commit gives
+``docs/gateway/KIKO-LITE-README.md``), ``LICENSE`` (from ``docs/gateway/KIKO-LITE-LICENSE``; the repo LICENSE also
+covers kiko-full), a ``VERSION`` file ("kiko-lite <sha> <commit date>") and the launchers ``kiko-lite`` (sh) and
+``kiko-lite.cmd`` (Windows). The docs live under ``docs/gateway/`` in this repo; the zip keeps their historic flat
+``docs/`` layout. The file list is sorted and the zip timestamps are fixed, so the same commit gives
 the same zip. The file list and all file bytes come from git HEAD (``git ls-tree``, ``git show``), not from the
 working tree, so CRLF checkouts cannot leak into the zip. Refuses to build when a bundled path (or an untracked
 file inside a bundled package) differs from HEAD, listing the paths. Refuses to build when any bundled ``.py``
@@ -32,26 +33,29 @@ import sys
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-PACKAGES = ("kikolib", "kiko_lite")
+ROOT = Path(__file__).resolve().parents[2]  # repo root: code is under gateway/, docs under docs/gateway/
+GW = "gateway/"  # prefix for every repo path that lives in gateway/; stripped from the zip paths by dest_name()
+PACKAGES = (GW + "kikolib", GW + "kiko_lite")
+TESTS = GW + "tests"
 SINGLE_FILES = (
-    "tools/linux_keystore_check.py",
-    "docs/LINUX-KEYSTORE-TEST.md",
-    "docs/LINUX-INSTALL.md",
-    "docs/GITHUB-DEPLOY.md",
+    GW + "tools/linux_keystore_check.py",
 )
-# repo path -> path inside the zip (the repo README and LICENSE belong to the LiteLLM fork, so kiko-lite has its own)
+# repo path -> path inside the zip. The repo README and LICENSE belong to the LiteLLM fork, so kiko-lite has its own.
+# The docs live under docs/gateway/ in the repo; the shipped zip keeps docs/ so existing users find the same paths.
 RENAMED = {
-    "docs/KIKO-LITE-README.md": "README.md",
-    "docs/KIKO-LITE-LICENSE": "LICENSE",
-    "tools/kiko-lite.service": "kiko-lite.service",  # systemd user unit template + installer (zip root)
-    "tools/install-service.sh": "install-service.sh",
-    # the repo's tests/kiko/conftest.py holds litellm fixtures; the zip gets a stdlib-only one
-    "tools/kiko_lite_tests_conftest.py": "tests/kiko/conftest.py",
+    "docs/gateway/LINUX-KEYSTORE-TEST.md": "docs/LINUX-KEYSTORE-TEST.md",
+    "docs/gateway/LINUX-INSTALL.md": "docs/LINUX-INSTALL.md",
+    "docs/gateway/GITHUB-DEPLOY.md": "docs/GITHUB-DEPLOY.md",
+    "docs/gateway/KIKO-LITE-README.md": "README.md",
+    "docs/gateway/KIKO-LITE-LICENSE": "LICENSE",
+    GW + "tools/kiko-lite.service": "kiko-lite.service",  # systemd user unit template + installer (zip root)
+    GW + "tools/install-service.sh": "install-service.sh",
+    # the repo's gateway/tests/kiko/conftest.py holds litellm fixtures; the zip gets a stdlib-only one
+    GW + "tools/kiko_lite_tests_conftest.py": "tests/kiko/conftest.py",
 }
 # unit tests shipped in the zip: all test_kiko_lite_* files except the bundle test (they need the repo's git)
-TEST_EXTRA = ("tests/__init__.py", "tests/kiko/__init__.py")
-TEST_EXCLUDE = ("tests/kiko/test_kiko_lite_bundle.py",)
+TEST_EXTRA = (GW + "tests/__init__.py", GW + "tests/kiko/__init__.py")
+TEST_EXCLUDE = (GW + "tests/kiko/test_kiko_lite_bundle.py",)
 WRAPPER_NAME = "kiko-lite"
 WRAPPER = (
     "#!/bin/sh\n"
@@ -99,18 +103,23 @@ def _skipped(name: str) -> bool:
 
 
 def is_bundled_test(name: str) -> bool:
-    """True for the repo-level test files that ship in the zip."""
-    if name in TEST_EXCLUDE:
+    """True for the test files that ship in the zip. Accepts repo paths and zip paths."""
+    repo = name if name.startswith(GW) else GW + name
+    if repo in TEST_EXCLUDE:
         return False
-    if name in TEST_EXTRA:
+    if repo in TEST_EXTRA:
         return True
-    d, _, f = name.rpartition("/")
-    return d == "tests/kiko" and f.startswith("test_kiko_lite_") and f.endswith(".py")
+    d, _, f = repo.rpartition("/")
+    return d == GW + "tests/kiko" and f.startswith("test_kiko_lite_") and f.endswith(".py")
 
 
 def dest_name(name: str) -> str:
     """Path inside the zip for repo path ``name``."""
-    return RENAMED.get(name, name)
+    if name in RENAMED:
+        return RENAMED[name]
+    if name.startswith(GW):
+        return name[len(GW):]
+    return name
 
 
 def _sources() -> tuple[str, ...]:
@@ -120,14 +129,14 @@ def _sources() -> tuple[str, ...]:
 def _is_bundled(name: str) -> bool:
     if name in _sources() or is_bundled_test(name):  # (the stdlib-only conftest is in RENAMED)
         return True
-    return name.split("/")[0] in PACKAGES and not _skipped(name)
+    return any(name.startswith(p + "/") for p in PACKAGES) and not _skipped(name)
 
 
 def file_list(root: Path = ROOT) -> list[str]:
     """Sorted POSIX-style repo paths of every file that goes into the zip (launchers, VERSION excluded), from HEAD.
 
     Renamed files (README, LICENSE) are listed under their repo path; ``dest_name`` gives the zip path."""
-    out = _git(root, "ls-tree", "-r", "--name-only", "-z", "HEAD", "--", *PACKAGES, *_sources(), "tests")
+    out = _git(root, "ls-tree", "-r", "--name-only", "-z", "HEAD", "--", *PACKAGES, *_sources(), TESTS)
     in_head = {n for n in out.decode("utf-8").split("\0") if n}
     names = {n for n in in_head if _is_bundled(n)}
     for pkg in PACKAGES:
@@ -141,7 +150,7 @@ def file_list(root: Path = ROOT) -> list[str]:
 
 def check_clean(root: Path = ROOT) -> None:
     """Refuse when a bundled path differs from HEAD (the zip ships HEAD, so such edits would be lost silently)."""
-    out = _git(root, "status", "--porcelain", "-z", "--untracked-files=all", "--", *PACKAGES, *_sources(), "tests")
+    out = _git(root, "status", "--porcelain", "-z", "--untracked-files=all", "--", *PACKAGES, *_sources(), TESTS)
     bad = [e for e in out.decode("utf-8", "replace").split("\0") if e and _is_bundled(e[3:])]
     if bad:
         raise BundleError("bundled files differ from git HEAD (commit or revert them first):\n  "

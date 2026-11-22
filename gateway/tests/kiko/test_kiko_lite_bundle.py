@@ -21,7 +21,7 @@ def _git(root, *args):
 
 def _repo_files():
     """Repo paths that go into the bundle, read from the working tree (new files may not be committed yet)."""
-    tracked = _git(kb.ROOT, "ls-files", "-z", *kb.PACKAGES, "tests").decode("utf-8").split("\0")
+    tracked = _git(kb.ROOT, "ls-files", "-z", *kb.PACKAGES, kb.TESTS).decode("utf-8").split("\0")
     names = {n for n in tracked if n and kb._is_bundled(n)} | set(kb.SINGLE_FILES) | set(kb.RENAMED)
     names |= set(kb.TEST_EXTRA)
     return sorted(n for n in names if (kb.ROOT / n).is_file())
@@ -124,7 +124,7 @@ def test_build_is_deterministic(tmp_path):
 
 def test_refuses_litellm(tmp_path):
     root, _ = _make_repo(tmp_path)
-    (root / "kiko_lite" / "bad.py").write_text("import litellm\n", encoding="utf-8")
+    (root / "gateway" / "kiko_lite" / "bad.py").write_text("import litellm\n", encoding="utf-8")
     _git(root, "add", "-A")
     _git(root, *_COMMIT, "commit", "-q", "-m", "bad")
     assert "litellm" in _refused(lambda: kb.build(tmp_path / "o", root=root, tag="x"))
@@ -145,27 +145,27 @@ def test_bundle_bytes_come_from_git_not_working_tree(tmp_path):
 
 def test_refuses_modified_tracked_bundled_file(tmp_path):
     root, _ = _make_repo(tmp_path)
-    (root / "kikolib" / "keystore.py").write_bytes(b"# edited\n")
-    assert "kikolib/keystore.py" in _refused(lambda: kb.build(tmp_path / "o", root=root, tag="x"))
+    (root / "gateway" / "kikolib" / "keystore.py").write_bytes(b"# edited\n")
+    assert "gateway/kikolib/keystore.py" in _refused(lambda: kb.build(tmp_path / "o", root=root, tag="x"))
 
 
 def test_refuses_deleted_bundled_file(tmp_path):
     root, _ = _make_repo(tmp_path)
-    (root / "docs" / "LINUX-INSTALL.md").unlink()
-    assert "docs/LINUX-INSTALL.md" in _refused(lambda: kb.build(tmp_path / "o", root=root, tag="x"))
+    (root / "docs" / "gateway" / "LINUX-INSTALL.md").unlink()
+    assert "docs/gateway/LINUX-INSTALL.md" in _refused(lambda: kb.build(tmp_path / "o", root=root, tag="x"))
 
 
 def test_refuses_untracked_file_in_bundled_package(tmp_path):
     root, _ = _make_repo(tmp_path)
-    (root / "kiko_lite" / "new_mod.py").write_text("x = 1\n", encoding="utf-8")
-    assert "kiko_lite/new_mod.py" in _refused(lambda: kb.build(tmp_path / "o", root=root, tag="x"))
+    (root / "gateway" / "kiko_lite" / "new_mod.py").write_text("x = 1\n", encoding="utf-8")
+    assert "gateway/kiko_lite/new_mod.py" in _refused(lambda: kb.build(tmp_path / "o", root=root, tag="x"))
 
 
 def test_modified_file_outside_bundle_does_not_block(tmp_path):
     root, _ = _make_repo(tmp_path)
     (root / "other.txt").write_text("changed\n", encoding="utf-8")
-    (root / "kiko_lite" / "__pycache__").mkdir()
-    (root / "kiko_lite" / "__pycache__" / "m.cpython-312.pyc").write_bytes(b"\0")
+    (root / "gateway" / "kiko_lite" / "__pycache__").mkdir()
+    (root / "gateway" / "kiko_lite" / "__pycache__" / "m.cpython-312.pyc").write_bytes(b"\0")
     z = kb.build(tmp_path / "o", root=root, tag="x")
     with zipfile.ZipFile(z) as zf:
         assert "other.txt" not in zf.namelist()
@@ -211,11 +211,11 @@ def test_cmd_launcher_has_no_trailing_semicolon_when_pythonpath_is_unset():
 
 def test_refuses_modified_shipped_test_file(tmp_path):
     root, _ = _make_repo(tmp_path)
-    (root / "tests" / "kiko" / "test_kiko_lite_app.py").write_bytes(b"# edited\n")
-    assert "test_kiko_lite_app.py" in _refused(lambda: kb.build(tmp_path / "o", root=root, tag="x"))
+    (root / "gateway" / "tests" / "kiko" / "test_kiko_lite_app.py").write_bytes(b"# edited\n")
+    assert "gateway/tests/kiko/test_kiko_lite_app.py" in _refused(lambda: kb.build(tmp_path / "o", root=root, tag="x"))
 
 
-@pytest.mark.parametrize("name", ["docs/KIKO-LITE-README.md", "docs/KIKO-LITE-LICENSE"])
+@pytest.mark.parametrize("name", ["docs/gateway/KIKO-LITE-README.md", "docs/gateway/KIKO-LITE-LICENSE"])
 def test_refuses_modified_renamed_file(tmp_path, name):
     root, _ = _make_repo(tmp_path)
     (root / name).write_bytes(b"edited\n")
