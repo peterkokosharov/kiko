@@ -24,6 +24,7 @@ posix helpers and token estimate to C on OpenWrt's event loop, with the same nam
 (`kikolib.sse.Parser.feed` -> `kiko_sse_parser_feed`). kikolib stays the single source for Python
 projects; libkiko is the single source for C projects. Neither copies code from the other; when one
 changes behaviour, the other is checked against it. Size budget: libkiko <= 80 KB of the 300 KB.
+The keystore comes from kiko-identity (C).
 
 ## Status
 
