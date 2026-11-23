@@ -19,6 +19,7 @@ sudo apt install -y ./dist/kiko_0.3.0_all.deb ./dist/kiko-tray-gtk3_0.1.0_amd64.
 ```
 
 See [`docs/INSTALL.md`](docs/INSTALL.md) for keys, Claude Code, the GTK3 build prerequisites and uninstall.
+See [`docs/KIKO-AND-CLI.md`](docs/KIKO-AND-CLI.md) (and `.bg.md`) for Claude Code, aider, goose, rex, OpenCode, Codex and Gemini through the gateway.
 
 ## Components
 

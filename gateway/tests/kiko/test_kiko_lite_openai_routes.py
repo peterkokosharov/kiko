@@ -109,6 +109,18 @@ def test_models_lists_only_resolvable_and_needs_auth(env):
     assert r.status == 200
 
 
+def test_model_info_litellm_shape(env):
+    # goose's LiteLLM provider GETs /model/info and reads data[].model_name.
+    r = env.client.request("GET", env.url + "/model/info", {"authorization": "Bearer " + MASTER})
+    assert r.status == 200
+    d = json.loads(r.read())
+    names = [m["model_name"] for m in d["data"]]
+    assert "haiku" in names and "opus" not in names
+    assert all(set(m) == {"model_name", "model_info"} for m in d["data"])
+    r = env.client.request("GET", env.url + "/model/info", {})
+    assert r.status == 401
+
+
 def test_openai_error_shapes(env):
     r = chat(env, {"n": 2})
     assert r.status == 400

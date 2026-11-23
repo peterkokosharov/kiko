@@ -9,7 +9,11 @@
 * ``POST /v1/messages/count_tokens`` fallback estimate (``kikolib.tokens``), no upstream call
 * ``POST /v1/chat/completions``     OpenAI clients: converted to a Messages body (``chat_front``), same pipeline
 * ``POST /v1/responses``            OpenAI Responses clients (codex CLI): ``responses_front``, same pipeline
+* ``POST /v1beta/models/{model}:generateContent`` / ``:streamGenerateContent``
+                                   Gemini CLI: ``gemini_front``, same pipeline
+* ``GET  /v1beta/models``          the model ids in Google list shape (Gemini CLI)
 * ``GET  /v1/models``              the model ids a client may ask for (OpenAI list shape)
+* ``GET  /model/info``              the same ids in LiteLLM metadata shape (for goose's LiteLLM provider)
 * ``GET  /health``                   no auth
 
 Flow: auth (master key) -> resolve model (injected ``ModelResolver``; one target, or an ordered list of
@@ -42,13 +46,14 @@ import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Union
+from urllib.parse import unquote
 
 from kikolib import http as khttp
 from kikolib import keystore, retry, server, sse, tokens
 from kikolib.server import HTTPError, JsonResponse, Request, StreamResponse
 
 from . import providers as ptable
-from . import chat_front, responses_front, toolshim
+from . import chat_front, gemini_front, responses_front, toolshim
 from .providers import gemini
 from .providers import openai_compat as oc
 
@@ -80,7 +85,7 @@ def valid_model_id(model_id: str, kind: str = "openai") -> bool:
         return False
     return kind != "gemini" or len(segments) == 1
 
-Front = Union[chat_front.ChatStream, responses_front.ResponsesStream]  # client-protocol stream translator
+Front = Union[chat_front.ChatStream, responses_front.ResponsesStream, gemini_front.GeminiStream]  # client-protocol stream translator
 OPENAI_PATHS = frozenset({"/v1/chat/completions", "/v1/responses", "/v1/models"})
 
 ModelResolver = Callable[[str], "tuple[str, str] | None"]
@@ -820,11 +825,51 @@ class _Gateway:
             raise HTTPError(400, "invalid_request_error", e.message) from None
         return self._messages(body, responses_front.ResponsesStream(opts["model"]), req.path)
 
+    def _gemini_request(self, req: Request) -> tuple[str, Any]:
+        model = unquote(req.params.get("model", ""))
+        if model.startswith("models/"):
+            model = model[7:]
+        if not valid_model_id(model, "gemini"):
+            raise HTTPError(400, "invalid_request_error", f"invalid model id: {model[:100]}")
+        return model, req.json()
+
+    def gemini_generate(self, req: Request) -> JsonResponse | StreamResponse:
+        model, raw = self._gemini_request(req)
+        try:
+            body, _ = gemini_front.convert_request(raw, model, stream=False)
+        except gemini_front.GeminiRequestError as e:
+            raise HTTPError(400, "invalid_request_error", e.message) from None
+        return self._messages(body, gemini_front.GeminiStream(model), req.path)
+
+    def gemini_stream(self, req: Request) -> JsonResponse | StreamResponse:
+        model, raw = self._gemini_request(req)
+        try:
+            body, _ = gemini_front.convert_request(raw, model, stream=True)
+        except gemini_front.GeminiRequestError as e:
+            raise HTTPError(400, "invalid_request_error", e.message) from None
+        return self._messages(body, gemini_front.GeminiStream(model), req.path)
+
+    def gemini_models(self, req: Request) -> JsonResponse:
+        listing = getattr(self.resolver, "list_models", None)
+        ids = list(listing()) if callable(listing) else []
+        return JsonResponse({"models": [
+            {"name": f"models/{i}", "displayName": i, "description": "kiko alias"} for i in ids]})
+
     def models(self, req: Request) -> JsonResponse:
         listing = getattr(self.resolver, "list_models", None)
         ids = list(listing()) if callable(listing) else []
         return JsonResponse({"object": "list", "data": [
             {"id": i, "object": "model", "created": 0, "owned_by": "kiko"} for i in ids]})
+
+    def litellm_model_info(self, req: Request) -> JsonResponse:
+        """Model metadata for goose's LiteLLM provider (``GET /model/info``).
+
+        It expects ``data[].model_name`` plus an optional ``model_info`` object;
+        absent fields simply leave context/vision detection to the client.
+        """
+        listing = getattr(self.resolver, "list_models", None)
+        ids = list(listing()) if callable(listing) else []
+        return JsonResponse({"data": [{"model_name": i, "model_info": {}} for i in ids]})
 
     def _messages(self, body: Any, front: Front | None, path: str = "") -> JsonResponse | StreamResponse:
         try:
@@ -842,7 +887,12 @@ class _Gateway:
         try:
             out = self._nonstream(plans, body, res, calls)
             if front is not None:
-                conv = responses_front if isinstance(front, responses_front.ResponsesStream) else chat_front
+                if isinstance(front, responses_front.ResponsesStream):
+                    conv = responses_front
+                elif isinstance(front, gemini_front.GeminiStream):
+                    conv = gemini_front
+                else:
+                    conv = chat_front
                 return JsonResponse(conv.convert_response(out.data, body["model"]))
             return out
         except HTTPError as e:
@@ -1205,5 +1255,12 @@ def build_app(resolver: ModelResolver, master_key: str | None, *, providers: Map
     app.route("POST", "/v1/messages/count_tokens")(gw.count_tokens)
     app.route("POST", "/v1/chat/completions")(gw._openai(gw.chat_completions))
     app.route("POST", "/v1/responses")(gw._openai(gw.responses, responses_front.error_body))
+    for ver in ("/v1beta", "/v1alpha"):
+        app.route("POST", ver + "/models/{model}:generateContent")(
+            gw._openai(gw.gemini_generate, gemini_front.error_body))
+        app.route("POST", ver + "/models/{model}:streamGenerateContent")(
+            gw._openai(gw.gemini_stream, gemini_front.error_body))
+        app.route("GET", ver + "/models")(gw._openai(gw.gemini_models, gemini_front.error_body))
     app.route("GET", "/v1/models")(gw._openai(gw.models))
+    app.route("GET", "/model/info")(gw._openai(gw.litellm_model_info))
     return app
