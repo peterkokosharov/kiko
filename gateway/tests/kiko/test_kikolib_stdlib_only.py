@@ -39,9 +39,9 @@ def test_kikolib_imports_stdlib_only():
 
 
 def test_webui_imports_stdlib_only():
-    files = sorted((KIKOLIB.parent / "web-ui").glob("*.py"))
-    assert files, "no web-ui/*.py found"
+    files = sorted((KIKOLIB.parent.parent / "web").glob("*.py"))
+    assert files, "no web/*.py found"
     allowed = set(sys.stdlib_module_names) | {"kikolib", "kiko_lite"}
     bad = {f.name: sorted(m for m in _top_level_modules(f) if m not in allowed) for f in files}
     bad = {k: v for k, v in bad.items() if v}
-    assert not bad, f"non-stdlib imports in web-ui: {bad}"
+    assert not bad, f"non-stdlib imports in web: {bad}"
