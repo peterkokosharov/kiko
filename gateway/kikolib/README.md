@@ -1,7 +1,7 @@
 # kikolib
 
 Small, standard-library-only library for kiko-lite (a stdlib proxy so Claude Code can talk to
-NVIDIA / Groq / Gemini / Qwen / OpenAI). Version 0.1.0. Python >= 3.11 (import fails earlier).
+NVIDIA / Groq / Gemini / Qwen / OpenAI). Version 0.2.0. Python >= 3.11 (import fails earlier).
 Primary target Linux (Debian 12, Q4OS, Mint); Windows also works (launcher `kiko-lite.cmd`).
 
 The wider role of kikolib as a shared base for kiko, rex, kircho and an agent system is described in
@@ -19,6 +19,29 @@ The wider role of kikolib as a shared base for kiko, rex, kircho and an agent sy
 6. **Headers**: every file starts with three lines: `# SPDX-License-Identifier: MIT`,
    `# Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>` and
    `# LLM: <model names, comma separated>`.
+
+## How other projects take kikolib
+
+kikolib has one home: this repository (`gateway/kikolib`). Never fork or edit it elsewhere.
+
+1. Copy the whole `kikolib/` folder, unmodified, from the release tag `kikolib-v0.2.0` (version = `kikolib.__version__`).
+2. Keep its `SHA256SUMS` in the copy (sha256 of every file, LF endings, sorted; `.gitattributes` forces `eol=lf`).
+3. Add a test in the consumer that runs the check: `python gateway/tools/kikolib_manifest.py check <copy>/kikolib`
+   (copy that script too, it is stdlib only), and assert `kikolib.__version__` equals the pinned version.
+4. Never edit the copy. To change anything: fix it here, bump the version, add a `CHANGES.md` entry, run
+   `python gateway/tools/kikolib_manifest.py write`, release a new tag, re-copy.
+
+The test `gateway/tests/kiko/test_kikolib_manifest.py` keeps the manifest from going stale.
+
+### Choosing the HTTP backend (consumers)
+
+`http.client()` takes no argument; it calls `factory.choose("http")`. On Windows 10/11 the `winhttp`
+backend (priority 5) beats `stdlib` (priority 10). To pin the stdlib backend either:
+
+- set the environment variable before the first `client()` call: `KIKO_HTTP_IMPL=stdlib`, or
+- in code: `factory.choose("http", override="stdlib")` once at start-up (the choice is cached; `client()` then returns it).
+
+`KIKO_CA_BUNDLE` set also makes winhttp unavailable (stdlib is used). The default is unchanged.
 
 ## Modules
 

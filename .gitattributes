@@ -1,0 +1,2 @@
+# kikolib is a shared library: always LF so SHA256SUMS is the same on every OS.
+gateway/kikolib/** text eol=lf
