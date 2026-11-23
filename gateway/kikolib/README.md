@@ -26,6 +26,8 @@ kikolib has one home: this repository (`gateway/kikolib`). Never fork or edit it
 
 1. Copy the whole `kikolib/` folder, unmodified, from the release tag `kikolib-v0.2.0` (version = `kikolib.__version__`).
 2. Keep its `SHA256SUMS` in the copy (sha256 of every file, LF endings, sorted; `.gitattributes` forces `eol=lf`).
+   Add `<dir>/kikolib/** text eol=lf` to the consumer's own `.gitattributes`, otherwise Windows `autocrlf`
+   checkouts change the bytes and the hash check fails.
 3. Add a test in the consumer that runs the check: `python gateway/tools/kikolib_manifest.py check <copy>/kikolib`
    (copy that script too, it is stdlib only), and assert `kikolib.__version__` equals the pinned version.
 4. Never edit the copy. To change anything: fix it here, bump the version, add a `CHANGES.md` entry, run
@@ -48,7 +50,7 @@ backend (priority 5) beats `stdlib` (priority 10). To pin the stdlib backend eit
 | Module | Purpose | Status |
 |---|---|---|
 | `factory.py` | thread-safe implementation registry and chooser | done |
-| `keystore.py` | API keys: env var first, then OS store (wcm, keychain, secret-tool, kwallet, dcop) | done (dcop unverified) |
+| `keystore.py` | API keys: env var first, then OS store (wcm, keychain, secret-tool, kwallet, dcop) | done (dcop verified on live TDE/Q4OS by the owner, 2026-11) |
 | `posix.py` | signals, RSS, sd_notify, watchdog, chmod 0o600, atomic private write | done |
 | `config.py` | the one source of paths, ports (base_port) and typed settings (one table); `kiko.toml` via tomllib, read on demand, never at import | done |
 | `tomlwrite.py` | TOML writer: update / insert / remove a key, keeps comments, atomic, refuses what it cannot represent | done |
@@ -68,5 +70,11 @@ plain socket is also handle-closed, but a TLS socket is only shut down (closing 
 `SSL_read` risks a handle-reuse race), so there the worker may live until the read timeout; a worker still
 blocked in `getresponse()` (no response head yet) cannot be aborted and ends at the timeout. The caller's
 own thread is never blocked by any of these. No TLS abort test exists (no stdlib way to make a test cert).
+
+Size limits: only `iter_lines` is capped (`MAX_LINE`, 16 MiB). Non-streaming response bodies (`http.py`,
+`winhttp.py`) and `sse.Parser` data lines are not size-capped; kikolib is meant for trusted upstreams.
+
+`server.App.browser_guard` is off by default. A consumer serving HTTP must turn it on (kiko does, in
+`kiko_lite/app.py`).
 
 No config file long term: settings live in SQLite. `crypto.py` and `jsonschema_lite.py` were removed.

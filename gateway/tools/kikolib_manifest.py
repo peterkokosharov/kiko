@@ -21,7 +21,7 @@ def compute(pkg: Path) -> dict[str, str]:
     out = {}
     for p in sorted(pkg.rglob("*")):
         rel = p.relative_to(pkg)
-        if not p.is_file() or "__pycache__" in rel.parts or p.suffix == ".pyc" or rel.as_posix() == NAME:
+        if not p.is_file() or "__pycache__" in rel.parts or rel.as_posix() == NAME:
             continue
         out[rel.as_posix()] = hashlib.sha256(p.read_bytes()).hexdigest()
     return out

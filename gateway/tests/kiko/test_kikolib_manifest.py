@@ -24,3 +24,15 @@ def test_version_is_pinned_release():
 
     assert kikolib.__version__ == "0.2.0"
     assert "## 0.2.0" in (GATEWAY / "kikolib" / "CHANGES.md").read_text(encoding="utf-8")
+
+
+def test_stray_pyc_is_reported_but_pycache_is_ignored(tmp_path):
+    tool = _tool()
+    pkg = tmp_path / "kikolib"
+    (pkg / "__pycache__").mkdir(parents=True)
+    (pkg / "a.py").write_text("x = 1\n", encoding="utf-8")
+    (pkg / "__pycache__" / "a.cpython-314.pyc").write_bytes(b"x")
+    tool.main(["write", str(pkg)])
+    assert tool.check(pkg) == []
+    (pkg / "evil.pyc").write_bytes(b"x")
+    assert tool.check(pkg) == ["not in manifest: evil.pyc"]

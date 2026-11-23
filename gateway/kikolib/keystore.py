@@ -8,7 +8,7 @@ Backends (factory kind "keystore", override with env KIKO_KEYSTORE_IMPL):
   keychain    macOS ``security`` CLI (service KIKO, account <NAME>)
   secret-tool GNOME Keyring / KDE via libsecret; attribute ``kiko-identity <NAME>``
   kwallet     KDE ``kwallet-query`` (wallet kdewallet, folder Passwords)
-  dcop        TDE / Q4OS kwalletd over DCOP -- UNVERIFIED on live TDE
+  dcop        TDE / Q4OS kwalletd over DCOP -- verified on live TDE/Q4OS by the owner (2026-11)
 
 Every backend has get(name) -> str | None, set(name, value) -> bool, delete(name) -> bool.
 Names are upper-cased. Subprocess calls use list args (no shell), a timeout (env
@@ -209,7 +209,7 @@ class KWalletStore:
 
 
 class DcopStore:
-    """TDE / Q4OS (KDE3) kwalletd over DCOP. UNVERIFIED on live TDE.
+    """TDE / Q4OS (KDE3) kwalletd over DCOP. Verified on live TDE/Q4OS by the owner (2026-11).
 
     In KDE3/TDE kwalletd lives inside kded, so ``dcop kded kwalletd <method>`` is tried
     first and ``dcop kwalletd <method>`` second. KDE3 signatures: open(wallet, wId) -> handle,

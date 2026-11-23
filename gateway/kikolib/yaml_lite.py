@@ -356,7 +356,10 @@ def load(text: str) -> Any:
     if not lines:
         return None
     p = _Parser(lines)
-    result = p.block(lines[0].indent)
+    try:
+        result = p.block(lines[0].indent)
+    except RecursionError:
+        raise YamlError("document nested too deeply") from None
     if p._more():
         raise YamlError("unexpected content", p.lines[p.pos].no)
     return result

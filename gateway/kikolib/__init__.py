@@ -20,12 +20,15 @@ __all__ = [
     "factory",
     "http",
     "keystore",
+    "logs",
     "posix",
     "retry",
     "server",
     "sse",
     "tokens",
+    "tomlwrite",
     "websocket",
+    "winhttp",
     "yaml_lite",
 ]
 
