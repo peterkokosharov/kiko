@@ -29,7 +29,7 @@ See [`docs/KIKO-AND-CLI.md`](docs/KIKO-AND-CLI.md) (and `.bg.md`) for Claude Cod
 | `web/` | Admin web UI — Python, stdlib only |
 | `spy/` | Live log viewer — Python, stdlib only |
 | `tray/` | System tray front-end (see below) |
-| `embedded/` | OpenWrt target — planned |
+| `embedded/` | kiko-wrt, a C11 proxy for OpenWrt built on libkiko (plan only), see [embedded/](embedded/README.md) |
 
 ## Tray
 
