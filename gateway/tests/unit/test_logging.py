@@ -164,7 +164,7 @@ def test_json_formatter_parses_embedded_python_dict_repr():
     """
     Test that JsonFormatter parses Python dict repr (str/deployment) embedded in
     plain text, e.g. from get_available_deployment logs.
-    Reproduces Roni's reported case.
+    Reproduces a reported case.
     """
     formatter = JsonFormatter()
     msg = (

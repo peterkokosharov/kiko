@@ -10,11 +10,11 @@ threaded server, SSE, retry, OS helpers, implementation factories). Everything a
 
 ```
 kikolib          infrastructure, stdlib only, no asyncio, threads
-   └── ronilib   AI pieces: RAG, context, and similar (not published yet)
+   └── agentlib  AI pieces: RAG, context, and similar (not published yet)
          ├── kiko    gateway / local service
          ├── rex     CLI
          ├── kircho  UI
-         └── roni    application on top of ronilib
+         └── agent   application on top of agentlib
 ```
 
 The point is not the package itself. The point is that after the base is stable, writing the next tool is a small
@@ -47,7 +47,7 @@ Verified 2026-11-22. There is **no `kikolib.deb`** and no published GitHub Relea
 | kiko | `gateway/kikolib/` | Canonical candidate. 15 modules: `config`, `dotenv`, `factory`, `http`, `keystore`, `logs`, `posix`, `retry`, `server`, `sse`, `tokens`, `tomlwrite`, `websocket`, `winhttp`, `yaml_lite`. |
 | rex | `runtimelib/kikolib/` | Separate copy. 11 modules, **renamed**: `http_client` instead of `http`, `posix_utils` instead of `posix`, plus `native_utils`. Not API-compatible with kiko's copy. |
 | kircho | `kircho/lib/kikolib/` | Vendored snapshot of 5 files only: `__init__`, `config`, `factory`, `posix`, `server`. Added 2026-11 to give kircho a route table without a second checkout. |
-| roni | `ronilib` (per owner) | Not published, not inspected. Reported to hold the AI layer: RAG, context, and similar. Needs its own look before any packaging decision. |
+| agent system | `agentlib` (per owner) | Not published, not inspected. Reported to hold the AI layer: RAG, context, and similar. Needs its own look before any packaging decision. |
 
 Adjacent but outside this plan: `ai_runtime` is the native side (CMake, service units, `debian/` directory). It is
 the launcher/service around the Python tools, not part of the stdlib layer.
@@ -115,14 +115,14 @@ Two rules make this safe:
 
 1. **Choose one source.** Suggested: `kiko/gateway/kikolib` — the most complete copy.
 2. **Reconcile the consumers.** Map rex's renamed modules back to the canonical names (or define stable aliases);
-   reduce kircho's 5-file snapshot to the same version with a clear fallback rule. Inspect `ronilib` once roni is
+   reduce kircho's 5-file snapshot to the same version with a clear fallback rule. Inspect `agentlib` once the agent system is
    published.
 3. **Define the package.** Install location, suggested `/usr/lib/python3/dist-packages/kikolib`, so no consumer
    needs `PYTHONPATH`. Declare `Depends: python3 (>= 3.11)`.
 4. **Choose where it is published.** Two candidates: GitHub Release with an install script, or a real apt
    repository with `Packages.gz`. Nothing is published today, so this is the missing piece behind "once it is
    uploaded, we can upload whatever we want".
-5. **Then package the consumers** — kiko, rex, kircho, roni — each declaring the dependency instead of copying.
+5. **Then package the consumers** — kiko, rex, kircho, the agent system — each declaring the dependency instead of copying.
 6. **Keep the provenance.** Carry the SPDX/copyright/`# LLM` headers into the deb and record the source commit in
    the package changelog, so a deployed copy can be traced back.
 
@@ -132,7 +132,7 @@ Two rules make this safe:
   source-level distribution instead.
 - Who owns the release: kiko repo, or a separate small `kikolib` repo? A separate repo makes the dependency honest
   but adds one more place to push.
-- Does `ronilib` sit inside the same deb as a second component, or is it a separate package with its own version?
+- Does `agentlib` sit inside the same deb as a second component, or is it a separate package with its own version?
 - Do the Windows and macOS targets actually have Python 3.12 with `pip` on PATH? rex/kircho need that Python anyway;
   if they do, the wheel is free. If not, build-time vendoring is the only small option.
 - Is a `.pkg` needed on macOS at all, or is `pip install kikolib` acceptable for the intended users?
@@ -142,4 +142,4 @@ Two rules make this safe:
 ## Sources
 
 `kiko/gateway/kikolib/README.md`, `kiko/packaging/*.sh`, `docs/INSTALL.md`, repository trees of rex and kircho
-(2026-11-22), and the owner's description of roni/ronilib on 2026-11-22 (`ronilib` not yet inspected).
+(2026-11-22), and the owner's description of the agent system/agentlib on 2026-11-22 (`agentlib` not yet inspected).

@@ -44,8 +44,8 @@ CONFIG
 
 API KEYS
   Same as KIKO — store in Windows Credential Manager:
-    cmdkey /generic:RONI/KIRCHO/GEMINI_API_KEY /user:GEMINI_API_KEY /pass:YOUR_KEY
-    cmdkey /generic:RONI/KIRCHO/MASTER_KEY     /user:MASTER_KEY     /pass:sk-your-secret
+    cmdkey /generic:KIKO/KIKO_IDENTITY/GEMINI_API_KEY /user:GEMINI_API_KEY /pass:YOUR_KEY
+    cmdkey /generic:KIKO/KIKO_IDENTITY/MASTER_KEY     /user:MASTER_KEY     /pass:sk-your-secret
 """.format(version=VERSION)
 
 

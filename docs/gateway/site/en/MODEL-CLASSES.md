@@ -4,7 +4,7 @@
 
 A client does not name a vendor model. It names a **class**, and kiko-lite picks a model of that class. The class is a
 job description, not a brand. Claude Code already uses three class names (opus, sonnet, haiku) in its model
-settings, so kiko-lite reuses them: the owner's agent system roni only says "this task needs a SONNET", and the
+settings, so kiko-lite reuses them: the owner's agent system only says "this task needs a SONNET", and the
 router decides which real model that is today.
 
 | Class | Role | Meaning |

@@ -4,7 +4,7 @@ Small, standard-library-only library for kiko-lite (a stdlib proxy so Claude Cod
 NVIDIA / Groq / Gemini / Qwen / OpenAI). Version 0.1.0. Python >= 3.11 (import fails earlier).
 Primary target Linux (Debian 12, Q4OS, Mint); Windows also works (launcher `kiko-lite.cmd`).
 
-The wider role of kikolib as a shared base for kiko, rex, kircho and roni is described in
+The wider role of kikolib as a shared base for kiko, rex, kircho and an agent system is described in
 [`docs/STDLIB-2.md`](../../docs/STDLIB-2.md) (proposal, 2026-11-22).
 
 ## Rules

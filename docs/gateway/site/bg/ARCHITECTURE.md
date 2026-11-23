@@ -26,7 +26,7 @@ kiko-lite има два Python пакета. **kikolib** е общ набор и
 
 ```mermaid
 flowchart LR
-    CC["Claude Code / roni"] -->|"POST /v1/messages (Anthropic API)"| SRV
+    CC["Claude Code / agent system"] -->|"POST /v1/messages (Anthropic API)"| SRV
     subgraph kikolib
         SRV["server + sse"]
         HTTP["http (http.client + ssl)"]
@@ -210,7 +210,7 @@ sequenceDiagram
 ```mermaid
 flowchart TB
     subgraph NOW["Сега: домашен компютър (Windows 11, Linux Mint, Q4OS)"]
-        CC1["Claude Code, roni"] -->|"127.0.0.1:4000"| K1["kiko-lite: python -m kiko_lite serve"]
+        CC1["Claude Code, agent system"] -->|"127.0.0.1:4000"| K1["kiko-lite: python -m kiko_lite serve"]
         K1 --- DB1[("~/.kiko/kiko.db")]
         K1 --- KS1["хранилище за ключове на ОС"]
     end

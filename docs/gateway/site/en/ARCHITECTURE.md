@@ -26,7 +26,7 @@ models. **kiko_lite** is the application built on it.
 
 ```mermaid
 flowchart LR
-    CC["Claude Code / roni"] -->|"POST /v1/messages (Anthropic API)"| SRV
+    CC["Claude Code / agent system"] -->|"POST /v1/messages (Anthropic API)"| SRV
     subgraph kikolib
         SRV["server + sse"]
         HTTP["http (http.client + ssl)"]
@@ -210,7 +210,7 @@ run out, the client gets an Anthropic-style `error` event, not a hung connection
 ```mermaid
 flowchart TB
     subgraph NOW["Now: home PC (Windows 11, Linux Mint, Q4OS)"]
-        CC1["Claude Code, roni"] -->|"proxy port, 4000 by default"| K1["kiko-lite: python -m kiko_lite serve"]
+        CC1["Claude Code, agent system"] -->|"proxy port, 4000 by default"| K1["kiko-lite: python -m kiko_lite serve"]
         K1 --- DB1[("kiko.db and kiko.toml in the config folder")]
         K1 --- KS1["OS key store"]
     end

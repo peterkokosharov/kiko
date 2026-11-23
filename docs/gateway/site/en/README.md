@@ -3,7 +3,7 @@
 kiko-lite is a small "model router" for the home. It is written in plain Python (standard library only, Python 3.11+),
 starts in well under a second and needs about 36 MB of memory.
 
-The idea: a client such as **Claude Code**, or the owner's multi-agent system **roni**, does not ask for a vendor
+The idea: a client such as **Claude Code**, or the owner's multi-agent system, does not ask for a vendor
 model. It asks for a model **class** (OPUS, SONNET, HAIKU, FABLE, and [more later](MODEL-CLASSES.md#planned-classes)) and kiko-lite gives it an alive
 model of that class from any vendor (Gemini, NVIDIA, Groq, Qwen, OpenAI-compatible endpoints).
 
