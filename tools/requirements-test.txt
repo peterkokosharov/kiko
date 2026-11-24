@@ -6,3 +6,4 @@ respx>=0.22
 httpx>=0.28
 psutil>=5
 pyyaml>=6
+Pillow>=10   # tray/python badge test (real icon drawing); the test skips without it

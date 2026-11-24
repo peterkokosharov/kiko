@@ -546,7 +546,9 @@ def test_stop_time_independent_of_socket_count(make):
     time.sleep(1.5)  # let every send buffer fill up
     t0 = time.monotonic()
     srv.stop()
-    assert time.monotonic() - t0 < 8  # serial stop would be about n * 2 s or more
+    # serial stop would be about n * 2 s = 16 s or more; 12 s keeps that intent and leaves room for slow CI
+    # runners (a Windows runner needed 8.05 s for the parallel stop)
+    assert time.monotonic() - t0 < 12
     for c in clients:
         c.close()
 

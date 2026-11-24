@@ -4,8 +4,10 @@
 """kikolib.posix: signals, rss, sd_notify, watchdog, private files."""
 import os
 import signal
+import shutil
 import socket
 import sys
+import tempfile
 import threading
 
 import pytest
@@ -85,7 +87,9 @@ def test_sd_notify_bad_socket(monkeypatch, tmp_path):
 
 @posix_only
 def test_sd_notify_delivers(monkeypatch, tmp_path):
-    path = str(tmp_path / "n.sock")
+    # AF_UNIX paths are limited to ~104 bytes (macOS); pytest's tmp_path is far longer there, so use a short dir
+    short = tempfile.mkdtemp(prefix="kk", dir="/tmp")
+    path = os.path.join(short, "n.sock")
     srv = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     try:
         srv.bind(path)
@@ -95,6 +99,7 @@ def test_sd_notify_delivers(monkeypatch, tmp_path):
         assert srv.recv(100) == b"READY=1"
     finally:
         srv.close()
+        shutil.rmtree(short, ignore_errors=True)
 
 
 @posix_only

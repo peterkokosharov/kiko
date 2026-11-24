@@ -185,6 +185,9 @@ def test_main_wallet_timeout_fails_cleanly(monkeypatch, capsys):
 
 def test_main_windows_not_applicable(monkeypatch, capsys):
     monkeypatch.setattr(sys, "platform", "win32")
+    # A fake sys.platform makes shutil.which take its Windows branch (ctypes.windll, which does not exist on
+    # Linux/macOS), so the PATH lookup is replaced for this test only; monkeypatch restores both afterwards.
+    monkeypatch.setattr(lc.shutil, "which", lambda name, *a, **k: None)
     assert lc.main([]) == 1
     assert "NOT APPLICABLE" in capsys.readouterr().out
 

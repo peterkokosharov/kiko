@@ -265,7 +265,7 @@ def _close(obj: Any) -> None:
 
 
 LINGER_SECONDS = 1.0  # a rejection that left the request body unread: how long we read it off before closing
-LINGER_BYTES = 64 * 1024
+LINGER_BYTES = 1024 * 1024  # > the 600 KB bodies of the tests: macOS loopback buffers less than Linux, so a smaller cap ends in an RST there
 
 
 def _lingering_close(sock: Any, seconds: float = LINGER_SECONDS, limit: int = LINGER_BYTES) -> None:

@@ -23,6 +23,15 @@ sys.path.insert(0, str(WIN))
 import install  # noqa: E402
 import portable  # noqa: E402
 import uninstall  # noqa: E402
+import winlnk  # noqa: E402
+
+
+def fake_create_shortcut(lnk_path, target, args="", workdir="", description=""):
+    """Stands in for winlnk.create_shortcut where there is no COM (Linux, macOS): same contract, a plain file."""
+    p = Path(lnk_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(f"{target}|{args}|{workdir}|{description}", encoding="utf-8")
+    return {"kind": "lnk", "path": str(p)}
 
 
 def tree(p: Path):
@@ -51,6 +60,10 @@ class Base(unittest.TestCase):
         env = mock.patch.dict(os.environ, {"APPDATA": str(self.appdata)})
         env.start()
         self.addCleanup(env.stop)
+        if os.name != "nt":  # the installer logic is tested everywhere; only real .lnk writing needs Windows
+            sc = mock.patch.object(winlnk, "create_shortcut", side_effect=fake_create_shortcut)
+            sc.start()
+            self.addCleanup(sc.stop)
 
     def tearDown(self):
         self._td.cleanup()

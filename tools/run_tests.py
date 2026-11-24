@@ -168,6 +168,18 @@ def suite_gateway(py):
     return r
 
 
+def parse_ctest(out):
+    """(passed, failed) from the ctest summary line, or None when there is none.  Forms seen:
+    "100% tests passed, 0 tests failed out of 7" (older ctest, Linux/Windows),
+    "100% tests passed out of 7" and "86% tests passed, 1 tests failed out of 7" (CTest 4.x / mixed)."""
+    m = re.search(r"(\d+)% tests passed(?:, (\d+) tests? failed)? out of (\d+)", out)
+    if not m:
+        return None
+    total = int(m.group(3))
+    failed = int(m.group(2)) if m.group(2) is not None else round(total * (100 - int(m.group(1))) / 100)
+    return total - failed, failed
+
+
 def suite_ctest():
     r = Result("tray C core (ctest)", "cmake -S tray -B <tmp> -DKT_BUILD_GUI=OFF && cmake --build && ctest")
     cmake, ctest = shutil.which("cmake"), shutil.which("ctest")
@@ -190,11 +202,10 @@ def suite_ctest():
             r.status, r.failed, r.tail = "FAIL", 1, out[-1500:]
             return r
         rc, out = run([ctest, "--test-dir", str(build), "-C", "Release", "--output-on-failure"])
-        m = re.search(r"tests passed, (\d+) tests failed out of (\d+)", out)
-        if m:
-            r.failed, total = int(m.group(1)), int(m.group(2))
-            r.passed = total - r.failed
-        r.status = "PASS" if rc == 0 and r.passed else "FAIL"
+        counts = parse_ctest(out)
+        if counts:
+            r.passed, r.failed = counts
+        r.status = "PASS" if rc == 0 and r.passed and not r.failed else "FAIL"
         r.tail = "\n".join(out.strip().splitlines()[-25:])
     finally:
         shutil.rmtree(build, ignore_errors=True)
@@ -228,6 +239,7 @@ def main():
         results.append(suite_header())
     if want("win"):
         results.append(suite_unittest("windows tools (unittest)", "tools/win/tests"))
+        results.append(suite_unittest("test runner (unittest)", "tools/tests"))
         results.append(suite_unittest("pkgkit (unittest)", "packaging/tests"))
         results.append(suite_unittest("tk tray model (unittest)", "tray/tk/tests", "tray"))
         results.append(suite_unittest("windows tray core (unittest)", "tray/wincore/tests", "tray/wincore"))
