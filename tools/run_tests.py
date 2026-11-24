@@ -142,7 +142,8 @@ def suite_tray_python(py):
     try:
         shutil.copytree(ROOT / "tray" / "python", stage / "tray",
                         ignore=shutil.ignore_patterns("__pycache__"))
-        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        # the tray tests import the shared core (kiko_tray_core) that lives in tray/wincore
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONPATH=str(ROOT / "tray" / "wincore"))
         xml = stage / "r.xml"
         rc, out = run([py, "-m", "pytest", "tray/tests", "-q", "-p", "no:cacheprovider", "--junitxml", str(xml)],
                       cwd=stage, env=env)
