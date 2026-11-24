@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  *
  * mac_main.m - kiko-tray for macOS (menu-bar app, LSUIElement).  UNVERIFIED: never compiled.
  * Environment: KIKO_PORT (default 4000), KIKO_API_TOKEN or the file ~/.kiko/api-token.

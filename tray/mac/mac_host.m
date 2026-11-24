@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  *
  * mac_host.m - start/stop kiko through launchctl and the user LaunchAgent com.kiko.lite
  * (sample: docs/macos/com.kiko.lite.plist, installed to ~/Library/LaunchAgents).

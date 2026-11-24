@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  */
 #include "kt_presenter.h"
 

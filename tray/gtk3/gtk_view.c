@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: nemotron (exact id unknown)
  *
  * gtk_view.c - GTK3 tray for Linux Mint (Cinnamon).  Tray icon: XAppStatusIcon (libxapp) when the
  * build found it, else GtkStatusIcon.  Menu and dialogs are plain GTK3 widgets.  State icons are

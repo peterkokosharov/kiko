@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * kt_presenter.h - the GUI-neutral brain of the tray: owns the menu, polls kiko's state, builds the
  * dialog contents, and runs every blocking call (HTTP, service control) on worker threads.
  *

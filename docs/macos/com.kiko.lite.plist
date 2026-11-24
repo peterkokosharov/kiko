@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Author: Peter Kokosharov <peter.kokosharov@gmail.com> -->
+<!-- AI models: unknown (before 2026-11-24) -->
 <!-- UNVERIFIED sample, never loaded on a Mac.  Copy to ~/Library/LaunchAgents/com.kiko.lite.plist and
      replace /ABSOLUTE/PATH/TO/kiko-lite with the real path and both REPLACE_WITH_HOME with your home folder (launchd does not expand ~ or $HOME).  The tray loads and kickstarts it with
      launchctl bootstrap/kickstart/bootout gui/<uid>/com.kiko.lite -->

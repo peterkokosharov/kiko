@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: claude-sonnet-5-5
  *
  * win_host.c - starts and stops kiko as a child of the tray.  Windows has no service for kiko-lite,
  * so "Start" runs the configured command (env KIKO_TRAY_COMMAND or kiko-tray.ini) without a console

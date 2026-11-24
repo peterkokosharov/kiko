@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * kt_view.h - the GUI-neutral contract between the common core and a per-OS GUI layer.
  *
  * A GUI layer (native/win32, native/gtk, later TQt in C++) fills in a kt_view (struct of function

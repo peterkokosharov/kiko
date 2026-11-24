@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  *
  * mac_view.m - macOS menu-bar layer (Objective-C, ARC).  NSStatusItem with a coloured dot drawn in
  * code, NSMenu, NSWindow dialogs (NSTableView / read-only NSTextView), post_to_ui through GCD.

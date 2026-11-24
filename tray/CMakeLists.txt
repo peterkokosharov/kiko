@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+# AI models: claude-sonnet-5-5
 #
 # kiko-tray native build.  One file, platform picked automatically:
 #   Windows (MSVC + Windows SDK, or MinGW)  -> win/    (pure Win32 API)

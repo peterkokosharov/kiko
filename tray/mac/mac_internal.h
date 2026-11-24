@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * mac_internal.h - shared declarations of the macOS layer.  UNVERIFIED: written without a Mac.
  */
 #ifndef MAC_INTERNAL_H

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  *
  * qt_view.cpp - Qt Widgets layer (Qt6, or Qt5 as fallback).  QSystemTrayIcon (StatusNotifierItem on
  * KDE Plasma), QMenu, QDialog with QTableWidget / read-only QPlainTextEdit.  No Q_OBJECT classes, so

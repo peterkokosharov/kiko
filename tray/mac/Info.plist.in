@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Author: Peter Kokosharov <peter.kokosharov@gmail.com> -->
+<!-- AI models: unknown (before 2026-11-24) -->
 <!-- Template for CMake MACOSX_BUNDLE_INFO_PLIST; LSUIElement = menu-bar app without a Dock icon. -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">

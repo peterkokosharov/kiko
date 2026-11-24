@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: claude-sonnet-5-5
  * kt_ini.h - a tiny key=value parser (kiko-tray.ini) and %VAR% expansion.  UTF-8, no sections.
  */
 #ifndef KT_INI_H

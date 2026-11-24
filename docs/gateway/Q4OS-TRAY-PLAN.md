@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Author: Peter Kokosharov <peter.kokosharov@gmail.com> -->
+<!-- AI models: unknown (before 2026-11-24) -->
 # kiko-UI for Q4OS 6 (TDE): plan for the coding agent
 
 Reader: the local coding agent on the owner's Q4OS 6 machine (Debian Trixie, TDE R14 / Trinity).

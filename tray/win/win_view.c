@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  *
  * win_view.c - the Win32 tray: hidden message window, Shell_NotifyIconW icon, popup menu,
  * balloon notifications, in-memory state icons, single-instance mutex, UI-thread post queue.

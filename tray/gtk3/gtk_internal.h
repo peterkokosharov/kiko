@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: nemotron (exact id unknown)
  * gtk_internal.h - shared declarations of the GTK3 layer (one tray instance per process).
  */
 #ifndef GTK_INTERNAL_H

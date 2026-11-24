@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * kt_util.h - tiny string helpers shared by the whole tray (UTF-8 everywhere).
  */
 #ifndef KT_UTIL_H

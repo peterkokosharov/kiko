@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * Tests our use of cJSON: the accessors and the reply shapes of docs/API-CONTRACT.md.
  */
 #include <stdlib.h>

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * Presenter tests with a fake view and a fake HTTP backend: no GUI, no sockets, any OS.
  */
 #include "fake_view.h"

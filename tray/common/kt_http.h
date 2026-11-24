@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * kt_http.h - minimal HTTP/1.1 client for 127.0.0.1 ONLY (no TLS, no redirects, no keep-alive).
  * One request per connection, "Connection: close", the response is read to EOF (max 4 MiB).
  * Blocking: call it from the worker thread, never from the UI thread.

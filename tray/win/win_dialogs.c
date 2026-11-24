@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  *
  * win_dialogs.c - native dialog windows built from a kt_dialog: STATIC labels, SysListView32 table or a
  * read-only multi-line EDIT, push buttons.  Segoe UI (the system message font), per-monitor DPI aware.

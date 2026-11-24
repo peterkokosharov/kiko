@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * kt_json.h - small NULL-safe accessors over cJSON (MIT, Dave Gamble; native/third_party/cjson).
  * The parser itself is cJSON; nothing here parses text.  All accessors tolerate NULL and a wrong
  * type and then return the default, so callers need no null checks on API replies.

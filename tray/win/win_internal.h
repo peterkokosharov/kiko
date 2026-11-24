@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * win_internal.h - shared declarations of the Win32 GUI layer (one tray instance per process).
  */
 #ifndef WIN_INTERNAL_H

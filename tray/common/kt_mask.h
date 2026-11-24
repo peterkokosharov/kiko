@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * kt_mask.h - key masking.  The tray NEVER fetches, stores, prints or logs key values: the API only
  * gives key NAMES and a present flag.  These helpers format that and add a last line of defence
  * (redaction) for free text such as log lines.

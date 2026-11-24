@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * kt_test.h - minimal assertion macros; every test file is its own executable (CTest runs them).
  */
 #ifndef KT_TEST_H

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  *
  * qt_main.cpp - kiko-tray for KDE Plasma (and any desktop with Qt): QSystemTrayIcon on the
  * StatusNotifierItem protocol.  UNVERIFIED: never compiled.

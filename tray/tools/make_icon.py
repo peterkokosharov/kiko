@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+# AI models: claude-sonnet-5-5
 """Generates tray/win/kiko-tray.ico: a bold white K on a rounded square in kiko's blue (0x2478E6, the
 tray's "starting" colour). Stdlib only: anti-aliased shapes by hand, PNG via zlib, ICO packed here.
 Usage: python tray/tools/make_icon.py [OUT.ico]"""

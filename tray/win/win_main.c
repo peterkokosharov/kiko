@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: claude-sonnet-5-5
  *
  * win_main.c - kiko-tray for Windows: reads the configuration, builds the Win32 view and the
  * presenter, runs the message loop.

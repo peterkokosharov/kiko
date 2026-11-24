@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * kt_thread.h - thin portable wrapper: Win32 threads/CRITICAL_SECTION/CONDITION_VARIABLE or pthreads,
  * plus a single-thread job worker.  Used so network work never runs on the UI thread.
  */

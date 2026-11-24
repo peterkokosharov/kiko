@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  *
  * qt_host.cpp - kiko control through the systemd USER unit kiko-lite.service (same as the GTK layer).
  * Runs on a presenter worker thread; the QProcess lives and dies on that thread (no event loop needed).

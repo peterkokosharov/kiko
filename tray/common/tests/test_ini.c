@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: claude-sonnet-5-5
  * kiko-tray.ini parser and %VAR% expansion.
  */
 #include <stdlib.h>

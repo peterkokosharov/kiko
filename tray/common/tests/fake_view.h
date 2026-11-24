@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * fake_view.h - a GUI-free kt_view plus a scriptable fake HTTP backend for the presenter tests.
  * "UI thread" = the test's main thread: posted functions only run when the test calls fv_pump().
  */

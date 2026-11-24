@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Author: Peter Kokosharov <peter.kokosharov@gmail.com> -->
+<!-- AI models: unknown (before 2026-11-24) -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity type="win32" name="kiko.tray" version="0.1.0.0"/>
   <description>kiko-tray</description>

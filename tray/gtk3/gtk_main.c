@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: nemotron (exact id unknown)
  *
  * gtk_main.c - kiko-tray for Linux Mint / GTK3.
  * Environment: KIKO_PORT (default 4000), KIKO_API_TOKEN or the file ~/.kiko/api-token.

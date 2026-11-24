@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+ * AI models: unknown (before 2026-11-24)
  * kt_icon.h - renders the state icon (coloured disc with a white K) into a pixel buffer, so no
  * .ico/.png resource files are needed.  Shared by the Win32 and GTK layers.
  */
