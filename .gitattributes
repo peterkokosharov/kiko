@@ -4,3 +4,5 @@ gateway/kikolib/** text eol=lf
 *.sh text eol=lf
 *.service text eol=lf
 tray/tools/kiko text eol=lf
+# pkgkit is copied unmodified into other projects: LF so SHA256SUMS holds on every OS.
+packaging/pkgkit/** text eol=lf
