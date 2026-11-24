@@ -48,6 +48,6 @@ def test_headers_and_no_vendor_name():
 def test_package_metadata_and_all_modules_import():
     import importlib
 
-    assert kikolib.__version__ == "0.2.0"
+    assert kikolib.__version__ == "0.2.1"
     for name in kikolib.__all__:
         importlib.import_module(f"kikolib.{name}")

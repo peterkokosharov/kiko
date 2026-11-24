@@ -22,8 +22,8 @@ def test_manifest_is_current():
 def test_version_is_pinned_release():
     import kikolib
 
-    assert kikolib.__version__ == "0.2.0"
-    assert "## 0.2.0" in (GATEWAY / "kikolib" / "CHANGES.md").read_text(encoding="utf-8")
+    assert kikolib.__version__ == "0.2.1"
+    assert "## 0.2.1" in (GATEWAY / "kikolib" / "CHANGES.md").read_text(encoding="utf-8")
 
 
 def test_stray_pyc_is_reported_but_pycache_is_ignored(tmp_path):
