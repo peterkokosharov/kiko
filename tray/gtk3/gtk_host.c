@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: nemotron (exact id unknown)
+ * AI models: nvidia-nemotron-3-ultra
  *
  * gtk_host.c - start/stop/restart kiko through the systemd USER unit kiko-lite.service
  * (installed from the kiko repo: tools/kiko-lite.service, tools/install-service.sh).
