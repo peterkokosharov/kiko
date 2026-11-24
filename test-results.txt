@@ -1,6 +1,6 @@
 kiko test results
-date (UTC): 2026-11-24 12:13:44
-git commit: 1847fef
+date (UTC): 2026-11-24 14:58:39
+git commit: b2183ba
 os: Windows 11 (AMD64), python 3.14.7
 
 suite: ai-header-check
@@ -9,6 +9,9 @@ suite: ai-header-check
 suite: windows tools (unittest)
   command: python -I -m unittest discover -s tools/win/tests
   passed: 47  failed: 0  skipped: 0  stale: 0  -> PASS
+suite: test runner (unittest)
+  command: python -I -m unittest discover -s tools/tests
+  passed: 4  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: pkgkit (unittest)
   command: python -I -m unittest discover -s packaging/tests
   passed: 6  failed: 0  skipped: 0  stale: 0  -> PASS
@@ -20,7 +23,7 @@ suite: windows tray core (unittest)
   passed: 14  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: tray-python (pytest)
   command: pytest tray/python/tests  (tray/python staged as package 'tray')
-  passed: 74  failed: 0  skipped: 5  stale: 0  -> PASS
+  passed: 79  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: gateway kiko_lite/kikolib/web/spy (pytest)
   command: cd gateway && PYTHONPATH=<repo>:<repo>/gateway pytest tests/kiko --continue-on-collection-errors
   passed: 1381  failed: 0  skipped: 24  stale: 142  -> PASS
