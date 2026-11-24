@@ -13,12 +13,16 @@ token, kiko-lite needs the master key. Both servers are children; when this proc
 See docs/WINDOWS-PORTABLE-INSTALL.md.
 """
 import argparse
+import csv
+import io
+import json
 import os
 import secrets
 import socket
 import subprocess
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -94,15 +98,112 @@ def kill_tree(pid: int) -> None:
             pass
 
 
+def _run_text(cmd: list) -> str:
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return r.stdout if r.returncode == 0 else ""
+
+
+def proc_cmdline(pid: int):
+    """(image name, command line) of a running process, or None when it cannot be found or read."""
+    if sys.platform == "win32":
+        out = _run_text(["wmic", "process", "where", f"processid={pid}", "get", "commandline,name", "/format:list"])
+        info = {}
+        for line in out.splitlines():
+            k, _, v = line.strip().partition("=")
+            if k in ("CommandLine", "Name"):
+                info[k] = v
+        if info.get("Name"):
+            return info["Name"], info.get("CommandLine", "")
+        return None
+    out = _run_text(["ps", "-p", str(pid), "-o", "comm=,args="])
+    if not out.strip():
+        return None
+    parts = out.strip().split(None, 1)
+    return os.path.basename(parts[0]), (parts[1] if len(parts) > 1 else "")
+
+
+def proc_image(pid: int):
+    """Image name of a running process (Windows: tasklist), or None."""
+    if sys.platform != "win32":
+        info = proc_cmdline(pid)
+        return info[0] if info else None
+    rows = list(csv.reader(io.StringIO(_run_text(["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"]))))
+    for row in rows:
+        if len(row) > 1 and row[1].strip() == str(pid):
+            return row[0]
+    return None
+
+
+def proc_start(pid: int) -> str:
+    """Creation time of a process as text (Windows, ctypes), '' when unknown. Guards against pid reuse."""
+    if sys.platform != "win32":
+        return ""
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.restype = wintypes.HANDLE
+    h = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return ""
+    try:
+        t = [wintypes.FILETIME() for _ in range(4)]
+        if not k32.GetProcessTimes(h, *[ctypes.byref(x) for x in t]):
+            return ""
+        return str((t[0].dwHighDateTime << 32) | t[0].dwLowDateTime)
+    finally:
+        k32.CloseHandle(h)
+
+
+def is_our_chain(pid: int, started: str = "") -> bool:
+    """True only when pid is a python process whose command line names kiko_chain.py. Without a readable command
+    line (wmic is gone on new Windows) it needs the recorded creation time to match as well; else: no."""
+    info = proc_cmdline(pid)
+    if info:
+        name, cmd = info
+        return name.lower().startswith("python") and "kiko_chain.py" in cmd.lower()
+    name = proc_image(pid)
+    return bool(name and name.lower().startswith("python") and started and proc_start(pid) == started)
+
+
 def stop() -> int:
     if not PIDFILE.is_file():
         print("no chain pid file; nothing to stop")
         return 0
-    pid = int(PIDFILE.read_text().strip())
+    lines = PIDFILE.read_text(encoding="utf-8").split()
+    try:
+        pid = int(lines[0])
+    except (IndexError, ValueError):
+        print(f"{PIDFILE} is not a valid pid file; not stopping anything (remove it by hand)", file=sys.stderr)
+        return 1
+    if proc_cmdline(pid) is None and proc_image(pid) is None:
+        PIDFILE.unlink(missing_ok=True)
+        print(f"chain pid {pid} is not running; removed the stale pid file")
+        return 0
+    if not is_our_chain(pid, lines[1] if len(lines) > 1 else ""):
+        print(f"pid {pid} in {PIDFILE} is not our chain (not a python kiko_chain.py process, or it cannot be "
+              f"verified); NOT stopping it. If the chain is really gone, delete the pid file.", file=sys.stderr)
+        return 1
     kill_tree(pid)
     PIDFILE.unlink(missing_ok=True)
     print(f"stopped chain (pid {pid})")
     return 0
+
+
+def chain_ready() -> bool:
+    """kiko-lite on :4000 answers /health AND accepts our master key (a foreign server fails the second)."""
+    try:
+        with urllib.request.urlopen(f"http://{HOST}:{KIKO_PORT}/health", timeout=3) as r:
+            if r.status != 200 or json.loads(r.read().decode("utf-8")).get("status") != "ok":
+                return False
+        req = urllib.request.Request(f"http://{HOST}:{KIKO_PORT}/v1/models",
+                                     headers={"x-api-key": secret("masterkey")})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status == 200
+    except (OSError, ValueError):
+        return False
 
 
 def run() -> int:
@@ -114,7 +215,7 @@ def run() -> int:
     LOGS.mkdir(parents=True, exist_ok=True)
     env = kiko_env()
     gw_script = HERE / "gateway" / "scripts" / "claude_cli_gateway.py"
-    PIDFILE.write_text(str(os.getpid()), encoding="utf-8")
+    PIDFILE.write_text(f"{os.getpid()}\n{proc_start(os.getpid())}\n", encoding="utf-8")
     procs = []
     logs = []
     try:
@@ -164,11 +265,11 @@ def detach() -> int:
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      close_fds=True)
     for _ in range(240):
-        if port_open(KIKO_PORT):
+        if port_open(KIKO_PORT) and chain_ready():
             print(f"chain started in the background: kiko-lite {HOST}:{KIKO_PORT}")
             return 0
         time.sleep(0.5)
-    print("chain did not come up in 120 s; see data/logs", file=sys.stderr)
+    print("chain did not come up (kiko-lite /health with our master key) in 120 s; see data/logs", file=sys.stderr)
     return 1
 
 

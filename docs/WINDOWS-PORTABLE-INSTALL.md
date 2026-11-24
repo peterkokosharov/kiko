@@ -15,8 +15,11 @@ Code: `tools/win/` (standard library only, Python 3.12+, run with `-I`; the path
     python -I %USERPROFILE%\apps\kikolib\uninstall.py [--purge]
 
 - Default destination: `%USERPROFILE%\apps\<target>`.
-- Installing over an existing install first uninstalls it (runtime data is kept). If a recorded file was
-  modified, the old install is not touched and the installer stops.
+- Installing over an existing install first runs the same check as `verify`. If a recorded file was modified
+  (`changed:`) or a record entry is unsafe, the installer stops before touching anything. Otherwise it
+  uninstalls the old install (runtime data is kept) and installs the new one. If the new install fails
+  after the old one was removed, the partial new install is rolled back; the old files are not restored
+  (re-run the installer). A failure in the final record write or verify also rolls back.
 - A destination folder that is not empty and has no record is refused.
 - Tests: `python -I tools/win/tests/test_portable.py` (unittest only; installs into temp folders; the .lnk
   test is skipped on non-Windows systems).
@@ -39,6 +42,12 @@ Code: `tools/win/` (standard library only, Python 3.12+, run with `-I`; the path
 Paths of files and dirs are relative to the app folder (forward slashes). Shortcut paths are relative to
 `%APPDATA%` and expanded when uninstalling.
 
+The record is not trusted. Uninstall, verify and rollback accept a path only if it is relative, has no `..`,
+is not empty or `.`, resolves inside the app folder (shortcuts: inside `%APPDATA%\Microsoft\Windows\Start
+Menu\Programs`) and passes through no symlink or junction. Other entries are skipped and reported
+(`SKIPPED`), the record is kept and the exit code is 1. Every file except `uninstall.py` and the record needs a
+non-empty sha256; an entry without one is skipped.
+
 ## Uninstall
 
 Order: shortcuts first, then files, then empty directories. A file whose sha256 changed is kept and
@@ -58,8 +67,8 @@ Exit code 0 = clean, 1 = something was kept.
 
 `create_shortcut(lnk, target, args, workdir, description)` writes a `.lnk` through ctypes COM
 (CLSID_ShellLink, IShellLinkW, IPersistFile), reads it back and compares it. If COM fails it writes a
-`.url` file instead and reports `kind: "url"`. `read_shortcut` and `delete_shortcut` complete the round trip.
-Callers record the shortcut with `Installation.add_shortcut(<%APPDATA%-relative path>)`.
+`.url` file instead (a warning is logged) and reports `kind: "url"`; the returned `path` then ends in `.url`. `read_shortcut` and `delete_shortcut` complete the round trip.
+Callers record the shortcut with `Installation.add_shortcut(<%APPDATA%-relative path>)`, using the returned `res["path"]` (not the `.lnk` path asked for, which does not exist after a fallback).
 - `kiko`: needs kikolib installed (`apps\kikolib\install-record.json`, else it stops). Layout in `apps\kiko\`:
   `kiko-lite\` (the bundle built from git HEAD by `gateway/tools/kiko_lite_bundle.py`, without its own `kikolib`;
   kikolib is reached through PYTHONPATH `apps\kikolib`), `gateway\scripts\claude_cli_gateway.py` and
@@ -77,7 +86,7 @@ CLI gateway on 127.0.0.1:4100, waits for it, then kiko-lite on 127.0.0.1:4000, b
 gateway needs `data\gwtoken` (passed with `--token-file`; kiko-lite gets it as `CGW_TOKEN`), clients need
 `data\masterkey` (`x-api-key` or Bearer). Env set for kiko-lite: `KIKO_CONFIG_DIR=data`,
 `KIKO_DB_PATH=data\kiko.db`, `CGW_TOKEN`, `MASTER_KEY`, `PYTHONDONTWRITEBYTECODE=1` (no `__pycache__` inside
-the recorded folders). `--stop` kills the pid in `data\chain.pid` (and its children). Only Anthropic models
+the recorded folders). `--stop` kills the pid in `data\chain.pid` (and its children) only after checking that it is a python process whose command line contains `kiko_chain.py` (`wmic`; where `wmic` is missing, `tasklist` plus the process creation time recorded in the pid file); if that cannot be verified it refuses and kills nothing. `--detach` reports success only when `/health` on :4000 answers and `/v1/models` accepts our master key. Only Anthropic models
 (haiku, sonnet, opus); the provider/model steps are those of `CLAUDE-CHAIN-WINDOWS.md`, run by the installer
 (`--init`) and idempotent.
 

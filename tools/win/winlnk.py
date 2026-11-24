@@ -9,13 +9,16 @@
 
 COM objects used: CLSID_ShellLink, IShellLinkW, IPersistFile. After saving, the .lnk is read back and
 compared with what was asked for. If COM fails or the read-back differs, a .url file is written instead
-(kind "url"). Windows only: on other systems every function raises OSError.
+(kind "url"; a warning is logged, and the returned "path" then ends in .url, so callers must record
+res["path"], not the .lnk path they asked for). Windows only: on other systems every function raises OSError.
 """
 import ctypes
+import logging
 import os
 import sys
 from pathlib import Path
 
+log = logging.getLogger(__name__)
 IS_WINDOWS = sys.platform == "win32"
 
 if IS_WINDOWS:
@@ -76,8 +79,9 @@ if IS_WINDOWS:
 
     def _com_write(path, target, args, workdir, description):
         sl = _new_link()
-        pf = sl.query(IID_IPersistFile)
+        pf = None
         try:
+            pf = sl.query(IID_IPersistFile)
             W = [wintypes.LPCWSTR]
             sl.call(_SL["SetPath"], W, target)
             sl.call(_SL["SetArguments"], W, args)
@@ -85,13 +89,15 @@ if IS_WINDOWS:
             sl.call(_SL["SetDescription"], W, description)
             pf.call(_PF["Save"], [wintypes.LPCWSTR, wintypes.BOOL], path, True)
         finally:
-            pf.release()
+            if pf is not None:
+                pf.release()
             sl.release()
 
     def _com_read(path):
         sl = _new_link()
-        pf = sl.query(IID_IPersistFile)
+        pf = None
         try:
+            pf = sl.query(IID_IPersistFile)
             pf.call(_PF["Load"], [wintypes.LPCWSTR, wintypes.DWORD], path, 0)
             res = {}
             for key, slot in (("target", "GetPath"), ("args", "GetArguments"),
@@ -105,7 +111,8 @@ if IS_WINDOWS:
                 res[key] = buf.value
             return res
         finally:
-            pf.release()
+            if pf is not None:
+                pf.release()
             sl.release()
 
     class _Com:
@@ -140,7 +147,8 @@ def create_shortcut(lnk_path, target, args="", workdir="", description="") -> di
         if _norm(back["target"]) != _norm(str(target)) or back["args"] != args:
             raise OSError(f"read-back mismatch: {back}")
         return {"kind": "lnk", "path": str(path)}
-    except (OSError, ValueError):
+    except (OSError, ValueError) as ex:
+        log.warning("winlnk: .lnk failed for %s (%s); writing a .url file instead", path, ex)
         if path.exists():
             path.unlink()
         return {"kind": "url", "path": str(_write_url(path, str(target)))}

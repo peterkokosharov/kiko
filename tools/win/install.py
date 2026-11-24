@@ -144,6 +144,16 @@ def main(argv=None) -> int:
     dest = Path(a.dest) if a.dest else portable.default_dest(a.target)
     dest = dest.resolve()
     if (dest / portable.RECORD).exists():
+        # check first: a modified file must abort before anything is removed
+        try:
+            old = portable.verify(dest)
+        except (OSError, ValueError, KeyError) as ex:
+            print(f"cannot read the old install record ({ex}); aborting, nothing touched")
+            return 1
+        changed = [p for p in old if p.startswith(("changed:", "unsafe path:", "no sha256:"))]
+        if changed:
+            print("old install has modified or unsafe entries; aborting, nothing touched:\n" + "\n".join(changed))
+            return 1
         print(f"existing install in {dest}: removing it first (data kept)")
         if portable.uninstall(dest) != 0:
             print("could not remove the old install cleanly; aborting")
@@ -155,10 +165,15 @@ def main(argv=None) -> int:
         inst = install_kiko(dest, Path(a.rex_src) if a.rex_src else None, Path(a.kikolib) if a.kikolib else None)
     else:
         inst = TARGETS[a.target](dest)
-    rec = inst.finish()
-    problems = portable.verify(dest)
+    try:
+        rec = inst.finish()
+        problems = portable.verify(dest)
+    except BaseException:
+        inst.rollback()
+        raise
     if problems:
         print("\n".join(problems))
+        inst.rollback()
         return 1
     if a.target in POST:
         if a.kikolib:

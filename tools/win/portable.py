@@ -77,7 +77,9 @@ class Installation:
     def rollback(self):
         """Undo a failed install: remove everything collected so far."""
         for e in sorted(self.created, key=lambda e: -len(e["path"])):
-            p = self.dest / e["path"]
+            p = _un._inside(self.dest, e["path"])
+            if p is None:
+                continue
             if e["kind"] == "file" and p.is_file():
                 p.unlink()
             elif e["kind"] == "dir" and p.is_dir():
@@ -99,12 +101,16 @@ def verify(dest: Path) -> list[str]:
     dest = Path(dest)
     problems = []
     for e in load_record(dest)["created"]:
-        if e["kind"] != "file":
+        if e.get("kind") != "file":
             continue
-        p = dest / e["path"]
-        if not p.is_file():
+        p = _un._inside(dest, e.get("path"))
+        if p is None:
+            problems.append(f"unsafe path: {e.get('path')!r}")
+        elif not p.is_file():
             problems.append(f"missing: {e['path']}")
-        elif _un.sha256_file(p) != e["sha256"]:
+        elif not e.get("sha256") and _un.needs_sha(e):
+            problems.append(f"no sha256: {e['path']}")
+        elif e.get("sha256") and _un.sha256_file(p) != e["sha256"]:
             problems.append(f"changed: {e['path']}")
     return problems
 

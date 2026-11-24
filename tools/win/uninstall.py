@@ -29,41 +29,116 @@ def sha256_file(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
+def _is_link(p: Path) -> bool:
+    if os.path.islink(p):
+        return True
+    j = getattr(p, "is_junction", None)  # Python 3.12+
+    return bool(j and j())
+
+
+def _inside(root: Path, rel) -> "Path | None":
+    """root/rel as a Path, or None when rel is unsafe: not a plain relative path, has '..', is empty or '.',
+    leaves root once resolved, or passes through a symlink/junction below root."""
+    if not isinstance(rel, str) or not rel.strip():
+        return None
+    rel = rel.replace("\\", "/")
+    if rel.startswith("/") or (len(rel) > 1 and rel[1] == ":") or Path(rel).is_absolute() \
+            or Path(rel).drive or Path(rel).anchor:
+        return None
+    parts = [x for x in rel.split("/") if x not in ("", ".")]
+    if not parts or ".." in parts:
+        return None
+    root = Path(root)
+    p = root.joinpath(*parts)
+    try:
+        if not p.resolve().is_relative_to(root.resolve()):
+            return None
+    except (OSError, ValueError):
+        return None
+    cur = root
+    for x in parts:
+        cur = cur / x
+        if _is_link(cur):
+            return None
+    return p
+
+
+def shortcut_root() -> Path:
+    return appdata_root() / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+
+
+def _shortcut_path(rel) -> "Path | None":
+    """A recorded shortcut path (relative to %APPDATA%), only if it lies in the Start Menu Programs folder."""
+    p = _inside(appdata_root(), rel)
+    if p is None:
+        return None
+    try:
+        if not p.resolve().is_relative_to(shortcut_root().resolve()):
+            return None
+    except (OSError, ValueError):
+        return None
+    return p
+
+
+def needs_sha(e: dict) -> bool:
+    return e.get("kind") == "file" and e.get("path") not in (RECORD, "uninstall.py")
+
+
 def uninstall(app_dir: Path, purge: bool = False, out=print) -> int:
-    """Remove what the record lists. Returns 0 if clean, 1 if something was kept or failed."""
+    """Remove what the record lists. Returns 0 if clean, 1 if something was kept, skipped or failed."""
     app_dir = Path(app_dir)
     rec_path = app_dir / RECORD
     if not rec_path.is_file():
         out(f"no {RECORD} in {app_dir}")
         return 2
     rec = json.loads(rec_path.read_text(encoding="utf-8"))
-    created = rec.get("created", [])
+    created = [e for e in rec.get("created", []) if isinstance(e, dict)]
     kept = []
-    for e in (e for e in created if e["kind"] == "shortcut"):
-        p = appdata_root() / e["path"]
+    bad = []
+    sc_root = shortcut_root().resolve()
+    for e in (e for e in created if e.get("kind") == "shortcut"):
+        p = _shortcut_path(e.get("path"))
+        if p is None:
+            bad.append(e.get("path"))
+            out(f"SKIPPED (unsafe shortcut path): {e.get('path')!r}")
+            continue
         if p.exists():
             p.unlink()
             out(f"removed shortcut {p.name}")
             try:
-                p.parent.rmdir()  # only if empty
+                if p.parent.resolve() != sc_root:
+                    p.parent.rmdir()  # only if empty, never the Programs folder itself
             except OSError:
                 pass
-    files = [e for e in created if e["kind"] == "file"]
-    for e in files:
-        p = app_dir / e["path"]
+    for e in (e for e in created if e.get("kind") == "file"):
+        p = _inside(app_dir, e.get("path"))
+        if p is None:
+            bad.append(e.get("path"))
+            out(f"SKIPPED (unsafe path): {e.get('path')!r}")
+            continue
         if e["path"] in (RECORD, "uninstall.py") or not p.exists():
             continue
-        if e.get("sha256") and sha256_file(p) != e["sha256"]:
+        if not e.get("sha256"):
+            bad.append(e["path"])
+            out(f"SKIPPED (no sha256 in record): {e['path']}")
+            continue
+        if not p.is_file() or sha256_file(p) != e["sha256"]:
             kept.append(e["path"])
             out(f"KEPT (modified): {e['path']}")
             continue
         p.unlink()
-    dirs = sorted((e for e in created if e["kind"] == "dir"), key=lambda e: -len(Path(e["path"]).parts))
+    dirs = sorted((e for e in created if e.get("kind") == "dir"),
+                  key=lambda e: -len(str(e.get("path")).replace("\\", "/").split("/")))
     for e in dirs:
-        d = app_dir / e["path"]
+        d = _inside(app_dir, e.get("path"))
+        if d is None:
+            bad.append(e.get("path"))
+            out(f"SKIPPED (unsafe dir path): {e.get('path')!r}")
+            continue
         if d.is_dir():
             for c in d.rglob("__pycache__"):
-                shutil.rmtree(c, ignore_errors=True)
+                if not _is_link(c):
+                    shutil.rmtree(c, ignore_errors=True)
             try:
                 d.rmdir()
             except OSError:
@@ -77,7 +152,7 @@ def uninstall(app_dir: Path, purge: bool = False, out=print) -> int:
                 out(f"purged {name}")
             else:
                 out(f"kept {name} (use --purge to remove)")
-    if not kept:
+    if not kept and not bad:
         rec_path.unlink()
         sp = app_dir / "uninstall.py"
         if sp.exists():
@@ -91,7 +166,7 @@ def uninstall(app_dir: Path, purge: bool = False, out=print) -> int:
             out(f"removed {app_dir}")
         except OSError:
             out(f"app folder kept (not empty): {app_dir}")
-    return 1 if kept else 0
+    return 1 if (kept or bad) else 0
 
 
 def main(argv) -> int:
