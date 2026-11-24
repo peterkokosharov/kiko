@@ -1,0 +1,8 @@
+# Test-only packages (production code stays stdlib only). Used by tools/run_tests.py and CI.
+pytest>=8,<10
+pytest-asyncio>=1.0,<2
+pytest-mock>=3.14
+respx>=0.22
+httpx>=0.28
+psutil>=5
+pyyaml>=6

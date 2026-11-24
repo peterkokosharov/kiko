@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: MIT
+# Runs ALL test suites on every push (Linux, Windows, macOS) through tools/run_tests.py and uploads
+# test-results.txt as an artifact.  A second job builds the GTK3 tray with the GUI layer and runs ctest.
+# Tests are never packaged: the release artifacts are built by other workflows/scripts that copy only binaries.
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  suites:
+    name: suites (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run all suites (writes test-results.txt)
+        run: python tools/run_tests.py
+
+      - name: Show results
+        if: always()
+        shell: bash
+        run: cat test-results.txt || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}
+          path: test-results.txt
+          if-no-files-found: warn
+
+  gtk3-tray:
+    name: gtk3 tray (ubuntu, build + ctest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config libgtk-3-dev libxapp-dev
+
+      - name: Configure (GTK3 + XApp when found)
+        run: cmake -S tray -B build -DCMAKE_BUILD_TYPE=Release -DKT_FETCH_CJSON=OFF
+
+      - name: Build kiko-tray
+        run: cmake --build build -j
+
+      - name: ctest
+        run: ctest --test-dir build --output-on-failure | tee gtk3-ctest.txt
+
+      - name: Binary exists and links GTK3
+        run: |
+          test -x build/kiko-tray
+          ldd build/kiko-tray | grep -i gtk-3
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gtk3-ctest
+          path: gtk3-ctest.txt
+          if-no-files-found: warn

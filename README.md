@@ -44,6 +44,11 @@ See [`docs/KIKO-AND-CLI.md`](docs/KIKO-AND-CLI.md) (and `.bg.md`) for Claude Cod
 | `tray/tk/` | Any platform — Python tkinter, stdlib only |
 | `tray/mac/` | macOS — NSStatusItem |
 
+## Testing
+
+All tests: `python tools/run_tests.py` (writes `test-results.txt`). Prerequisites, per-suite commands and the manual
+test plans are in [`TESTING.md`](TESTING.md).
+
 ## AI authorship
 
 Code here is largely written by AI models under the author's direction.

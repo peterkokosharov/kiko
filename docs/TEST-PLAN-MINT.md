@@ -7,7 +7,7 @@ Prerequisite: the user unit from the kiko repo is installed (`tools/install-serv
 
 | # | Step | Expected result |
 |---|---|---|
-| 1 | Install packages and build as in BUILD.md; `ctest --test-dir build --output-on-failure` | 6/6 tests pass; CMake printed "XApp status icon: found" |
+| 1 | Install packages and build as in BUILD.md; `ctest --test-dir build --output-on-failure` | 7/7 tests pass; CMake printed "XApp status icon: found" |
 | 2 | `systemctl --user stop kiko-lite`, run `./build/kiko-tray` | a **red** icon in the Cinnamon panel tray; tooltip "KIKO: not running" |
 | 3 | Run it again | "kiko-tray is already running" on stderr; one icon |
 | 4 | `systemctl --user start kiko-lite` | icon turns **green** within about 5 s |
