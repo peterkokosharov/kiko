@@ -11,6 +11,7 @@ Code: `tools/win/` (standard library only, Python 3.12+, run with `-I`; the path
 ## Usage
 
     python -I tools/win/install.py kikolib [--dest DIR]
+    python -I tools/win/install.py kiko [--dest DIR] [--rex-src DIR] [--kikolib DIR]
     python -I %USERPROFILE%\apps\kikolib\uninstall.py [--purge]
 
 - Default destination: `%USERPROFILE%\apps\<target>`.
@@ -47,7 +48,7 @@ Exit code 0 = clean, 1 = something was kept.
 
 ## Targets
 
-`install.py` has a table `TARGETS = {name: function(dest) -> Installation}`; add kiko, tray and sisi there.
+`install.py` has a table `TARGETS = {name: function(dest) -> Installation}`; add tray and sisi there. A target may also have a `POST` step (runtime data, not recorded).
 
 - `kikolib`: copies `gateway/kikolib` from git HEAD (`git archive`, not the working tree) into
   `apps\kikolib\kikolib\`, then runs `gateway/tools/kikolib_manifest.py check` on the copy. A mismatch rolls
@@ -59,3 +60,30 @@ Exit code 0 = clean, 1 = something was kept.
 (CLSID_ShellLink, IShellLinkW, IPersistFile), reads it back and compares it. If COM fails it writes a
 `.url` file instead and reports `kind: "url"`. `read_shortcut` and `delete_shortcut` complete the round trip.
 Callers record the shortcut with `Installation.add_shortcut(<%APPDATA%-relative path>)`.
+- `kiko`: needs kikolib installed (`apps\kikolib\install-record.json`, else it stops). Layout in `apps\kiko\`:
+  `kiko-lite\` (the bundle built from git HEAD by `gateway/tools/kiko_lite_bundle.py`, without its own `kikolib`;
+  kikolib is reached through PYTHONPATH `apps\kikolib`), `gateway\scripts\claude_cli_gateway.py` and
+  `gateway\runtimelib\procutil.py` (from the rex repo's git HEAD, `--rex-src`, default `~/rex`; its working tree
+  is never read, the rex repo is not touched), `kiko_chain.py`, and the launchers `kiko-chain.cmd` /
+  `kiko-chain-stop.cmd` (they name the installing Python by absolute path). `--kikolib DIR` overrides
+  `<dest>/../kikolib` for the install only; at run time `kiko_chain.py` uses `../kikolib` or env
+  `KIKO_KIKOLIB_DIR`.
+
+## The kiko chain
+
+`kiko_chain.py` (`python -I kiko_chain.py [--detach | --stop | --init]`, or the `.cmd` launchers) starts the Claude
+CLI gateway on 127.0.0.1:4100, waits for it, then kiko-lite on 127.0.0.1:4000, both as children, logs in
+`data\logs\`. When it ends (Ctrl-C, `--stop`, or one child dying) both are stopped. Auth is always on: the
+gateway needs `data\gwtoken` (passed with `--token-file`; kiko-lite gets it as `CGW_TOKEN`), clients need
+`data\masterkey` (`x-api-key` or Bearer). Env set for kiko-lite: `KIKO_CONFIG_DIR=data`,
+`KIKO_DB_PATH=data\kiko.db`, `CGW_TOKEN`, `MASTER_KEY`, `PYTHONDONTWRITEBYTECODE=1` (no `__pycache__` inside
+the recorded folders). `--stop` kills the pid in `data\chain.pid` (and its children). Only Anthropic models
+(haiku, sonnet, opus); the provider/model steps are those of `CLAUDE-CHAIN-WINDOWS.md`, run by the installer
+(`--init`) and idempotent.
+
+`data\` (tokens, `kiko.db`, logs, pid) is runtime data: not in the record, kept on reinstall and uninstall,
+removed only with `--purge`. The earlier test chain in `%USERPROFILE%\.kiko-chain` is retired (not deleted);
+the installed chain replaces it on the same ports 4000/4100.
+
+Limits: the gateway needs the `claude` CLI on PATH and logged in. If a chain is already listening on 4000 or
+4100, `kiko_chain.py` refuses to start.

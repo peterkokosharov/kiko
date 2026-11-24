@@ -99,6 +99,91 @@ class InstallKikolib(unittest.TestCase):
         self.assertTrue((self.dest / "mine.txt").is_file())
 
 
+class InstallKiko(unittest.TestCase):
+    def setUp(self):
+        self._td = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._td.name)
+        self.apps = self.tmp / "apps"
+        self.dest = self.apps / "kiko"
+        self.env = dict(os.environ, APPDATA=str(self.tmp / "appdata"))
+        self.rex = self.tmp / "rex"  # fake rex repo: only the two files the installer copies
+        (self.rex / "scripts").mkdir(parents=True)
+        (self.rex / "runtimelib").mkdir()
+        (self.rex / "scripts" / "claude_cli_gateway.py").write_text("# fake gateway\n")
+        (self.rex / "runtimelib" / "procutil.py").write_text("# fake procutil\n")
+        g = ["git", "-C", str(self.rex), "-c", "user.name=t", "-c", "user.email=t@example.invalid"]
+        subprocess.run([*g, "init", "-q"], check=True)
+        subprocess.run([*g, "add", "."], check=True)
+        subprocess.run([*g, "commit", "-q", "-m", "x"], check=True)
+        # a working-tree edit must not leak: the installer reads git HEAD
+        (self.rex / "scripts" / "claude_cli_gateway.py").write_text("# edited, uncommitted\n")
+
+    def tearDown(self):
+        self._td.cleanup()
+
+    def run_py(self, script, *args):
+        return subprocess.run([sys.executable, "-I", str(script), *args], capture_output=True,
+                              text=True, env=self.env)
+
+    def install_kikolib(self):
+        r = self.run_py(WIN / "install.py", "kikolib", "--dest", str(self.apps / "kikolib"))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def install(self):
+        r = self.run_py(WIN / "install.py", "kiko", "--dest", str(self.dest), "--rex-src", str(self.rex))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_requires_kikolib(self):
+        r = self.run_py(WIN / "install.py", "kiko", "--dest", str(self.dest), "--rex-src", str(self.rex))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("kikolib is not installed", r.stdout + r.stderr)
+        self.assertFalse(self.dest.exists())
+
+    def test_install_layout_data_uninstall(self):
+        self.install_kikolib()
+        self.install()
+        d = self.dest
+        self.assertTrue((d / "kiko-lite" / "kiko_lite" / "cli.py").is_file())
+        self.assertFalse((d / "kiko-lite" / "kikolib").exists())  # kikolib comes from apps/kikolib
+        self.assertEqual((d / "gateway" / "scripts" / "claude_cli_gateway.py").read_text(), "# fake gateway\n")
+        self.assertTrue((d / "gateway" / "runtimelib" / "procutil.py").is_file())
+        self.assertTrue((d / "kiko_chain.py").is_file())
+        cmd = (d / "kiko-chain.cmd").read_text()
+        self.assertIn(f'"{sys.executable}" -I', cmd)  # absolute Python
+        self.assertEqual(portable.verify(d), [])
+        rec = json.loads((d / "install-record.json").read_text(encoding="utf-8"))
+        self.assertEqual(rec["app"], "kiko")
+        self.assertFalse([e for e in rec["created"] if e["path"].startswith("data")])
+        # data: random tokens and a database with the three Anthropic models only
+        for n in ("gwtoken", "masterkey"):
+            self.assertGreaterEqual(len((d / "data" / n).read_text().strip()), 32)
+        self.assertTrue((d / "data" / "kiko.db").is_file())
+        env = dict(self.env, PYTHONPATH=os.pathsep.join([str(d / "kiko-lite"), str(self.apps / "kikolib")]),
+                   KIKO_CONFIG_DIR=str(d / "data"), KIKO_DB_PATH=str(d / "data" / "kiko.db"))
+        r = subprocess.run([sys.executable, "-P", "-m", "kiko_lite", "list-models"], env=env, cwd=str(d / "data"),
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        for m in ("haiku", "sonnet", "opus"):
+            self.assertIn(m, r.stdout)
+        self.assertNotIn("gemini", r.stdout.lower())
+        self.assertEqual(portable.verify(d), [])  # reading did not add files
+        # reinstall keeps the secrets
+        tok = (d / "data" / "gwtoken").read_text()
+        self.install()
+        self.assertEqual((d / "data" / "gwtoken").read_text(), tok)
+        self.assertEqual(self.run_py(d / "uninstall.py").returncode, 0)
+        self.assertEqual(sorted(p.name for p in d.iterdir()), ["data"])
+        self.install()
+        self.assertEqual(self.run_py(d / "uninstall.py", "--purge").returncode, 0)
+        self.assertFalse(d.exists())
+
+    def test_missing_rex_file_fails_clean(self):
+        self.install_kikolib()
+        r = self.run_py(WIN / "install.py", "kiko", "--dest", str(self.dest), "--rex-src", str(self.tmp / "nope"))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(self.dest.exists())
+
+
 @unittest.skipUnless(sys.platform == "win32", "COM shortcuts are Windows only")
 class Lnk(unittest.TestCase):
     def test_roundtrip(self):
