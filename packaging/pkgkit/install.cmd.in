@@ -1,0 +1,29 @@
+@echo off
+REM SPDX-License-Identifier: MIT
+REM Author: Peter Kokosharov <peter.kokosharov@gmail.com>
+REM AI models: claude-sonnet-5-5
+REM Installs @NAME@ @VERSION@ for the current user (pkgkit @PKGKIT@). Option: /quiet (no pause). Python does the work.
+setlocal EnableExtensions
+set "QUIET="
+for %%A in (%*) do if /i "%%~A"=="/quiet" set "QUIET=1"
+cd /d "%~dp0"
+set "PY="
+call :try py -3
+if not defined PY call :try python
+if not defined PY goto :nopython
+%PY% -I "_pkg\install.py" %*
+set "RC=%ERRORLEVEL%"
+goto :end
+
+:try
+%* -c "import sys; sys.exit(0 if sys.version_info >= (@MINPY_TUPLE@) else 1)" >nul 2>nul
+if not errorlevel 1 set "PY=%*"
+exit /b 0
+
+:nopython
+echo @NAME@ needs Python @MINPY@ or newer. Install it from python.org (tick "Add to PATH"), then run install again.
+set "RC=1"
+
+:end
+if not defined QUIET pause
+exit /b %RC%

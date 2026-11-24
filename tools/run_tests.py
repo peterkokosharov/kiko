@@ -223,6 +223,7 @@ def main():
         results.append(suite_header())
     if want("win"):
         results.append(suite_unittest("windows tools (unittest)", "tools/win/tests"))
+        results.append(suite_unittest("pkgkit (unittest)", "packaging/tests"))
     if want("tray-python") or want("gateway"):
         py, err = venv_python(not a.no_venv)
         for key, fn, nm in (("tray-python", suite_tray_python, "tray-python (pytest)"),
