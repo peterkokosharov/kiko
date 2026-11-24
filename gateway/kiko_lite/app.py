@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
-# LLM: Anthropic Opus
+# LLM: Anthropic Opus, claude-sonnet-5-5
 """kiko-lite app core: Anthropic ``POST /v1/messages`` served by translating to an upstream provider.
 
 ``build_app`` returns a ``kikolib.server.App`` with:
@@ -752,7 +752,7 @@ class _Gateway:
                                 "messages": [{"role": "user", "content": "ping"}]}, upstream, (pname, upstream))
         except HTTPError:
             return False  # no key / bad id: cannot serve
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         try:
             resp = self.http.request("POST", plan.url, plan.headers, plan.data,
                                      timeout=timeout or self._probe_timeout(plan.timeout), stream=True)
@@ -782,7 +782,7 @@ class _Gateway:
     def _probe_row(self, plan: _Plan, status: int, raw: bytes, t0: float, error: str | None = None) -> None:
         """Report one probe that reached the upstream to ``on_result`` (billing route "probe")."""
         res = RequestResult(uuid.uuid4().hex[:16], plan.upstream_model, plan.provider, plan.upstream_model, False,
-                            1, status, latency=time.monotonic() - t0, route="probe")
+                            1, status, latency=time.perf_counter() - t0, route="probe")
         if status == 200:
             try:
                 res.usage = dict(plan.parse(json.loads(raw.decode("utf-8")))["usage"])
@@ -880,7 +880,7 @@ class _Gateway:
         plan = plans[0]
         res = RequestResult(uuid.uuid4().hex[:16], body["model"], plan.provider, plan.upstream_model, plan.stream,
                             request=body, path=path)
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         calls = [0]
         if plan.stream:
             return StreamResponse(self._stream(plans, body, res, calls, t0, front))
@@ -924,7 +924,7 @@ class _Gateway:
             logger.error("on_result hook failed", exc_info=True)
 
     def _finish(self, res: RequestResult, calls: list[int], t0: float) -> None:
-        res.attempts, res.latency = calls[0], time.monotonic() - t0
+        res.attempts, res.latency = calls[0], time.perf_counter() - t0
         extra = f" path={res.path}" if res.path else ""
         if res.upstream_status:  # a stream that failed after the 200 headers: the real outcome (no message, no key)
             extra += f" upstream={res.upstream_status} error={res.error} outcome=error"
