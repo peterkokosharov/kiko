@@ -18,6 +18,7 @@
 static wchar_t *g_command;       /* malloc'd command line */
 static HANDLE   g_proc;          /* child started by the tray, or NULL */
 static HANDLE   g_job;           /* job object that owns the child tree, or NULL */
+static int      g_reaped;        /* child_alive() just cleaned up a job whose main child had exited */
 
 /* Looks for name(.exe) in each directory of %PATH%, one directory at a time.  Empty entries and "."
  * (both mean the current directory) are skipped, and relative entries are ignored: a program in the
@@ -126,6 +127,7 @@ static int child_alive(void)
     if (!g_proc) return 0;
     if (WaitForSingleObject(g_proc, 0) == WAIT_TIMEOUT) return 1;
     kill_job();   /* the main child ended: clean up anything it left behind */
+    g_reaped = 1;
     return 0;
 }
 
@@ -144,6 +146,7 @@ static int do_start(char *msg, size_t msgsz)
         snprintf(msg, msgsz, "No start command configured: set command in kiko-tray.ini or KIKO_TRAY_COMMAND");
         return -1;
     }
+    g_reaped = 0;
     cmd = resolve_command(g_command);   /* full path, never the current directory */
     if (!cmd) { snprintf(msg, msgsz, "Cannot find the kiko program (check the start command)"); return -1; }
     memset(&si, 0, sizeof si);
@@ -185,6 +188,11 @@ static int do_start(char *msg, size_t msgsz)
 static int do_stop(char *msg, size_t msgsz)
 {
     if (!child_alive()) {
+        if (g_reaped) {   /* the tray did start it; the main child had already ended, the rest is cleaned now */
+            g_reaped = 0;
+            snprintf(msg, msgsz, "kiko stopped");
+            return 0;
+        }
         snprintf(msg, msgsz, "kiko was started outside the tray; stop it where it was started");
         return -1;
     }

@@ -193,7 +193,11 @@ def install_tray(dest: Path, zip_path: Path, kiko: Path | None = None,
             links.append((STARTUP_SUBDIR + "/kiko tray.lnk", "kiko tray (autostart)"))
         for rel, desc in links:
             res = winlnk.create_shortcut(uninstall.appdata_root() / rel, dest / TRAY_EXE, "", str(dest), desc)
-            actual = Path(res["path"]).relative_to(uninstall.appdata_root()).as_posix()
+            try:
+                actual = Path(res["path"]).relative_to(uninstall.appdata_root()).as_posix()
+            except ValueError:
+                Path(res["path"]).unlink(missing_ok=True)  # created but cannot be recorded: do not leave it
+                raise
             inst.add_shortcut(actual)
     except BaseException:
         inst.rollback()

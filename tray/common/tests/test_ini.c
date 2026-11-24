@@ -11,7 +11,7 @@
 static const char *lookup(const char *name, void *ctx)
 {
     (void)ctx;
-    if (strcmp(name, "APPDATA") == 0) return "C:\Users\x\AppData";
+    if (strcmp(name, "APPDATA") == 0) return "C:\\Users\\x\\AppData";
     if (strcmp(name, "EMPTY") == 0) return "";
     return NULL;
 }
@@ -26,16 +26,16 @@ static void check_get(const char *text, const char *key, const char *want)
 static void test_get(void)
 {
     const char *t = "\xEF\xBB\xBF# comment\r\n; other\r\n"
-                    "command = \"C:\py\python.exe\" \"C:\k\kiko_chain.py\"  \r\n"
+                    "command = \"C:\\py\\python.exe\" \"C:\\k\\kiko_chain.py\"  \r\n"
                     "  PORT=4001\n"
-                    "token_file =%USERPROFILE%\t\n"
+                    "token_file =%USERPROFILE%\\t\n"
                     "empty =\n"
                     "#hidden = no\n"
                     "port = 9\n"
                     "last=x";
-    check_get(t, "command", "\"C:\py\python.exe\" \"C:\k\kiko_chain.py\"");
+    check_get(t, "command", "\"C:\\py\\python.exe\" \"C:\\k\\kiko_chain.py\"");
     check_get(t, "port", "4001");                 /* case-insensitive key, first match wins */
-    check_get(t, "token_file", "%USERPROFILE%\t");
+    check_get(t, "token_file", "%USERPROFILE%\\t");
     check_get(t, "empty", "");
     check_get(t, "hidden", NULL);                 /* commented out */
     check_get(t, "last", "x");                    /* no trailing newline */
@@ -47,8 +47,8 @@ static void test_get(void)
 
 static void test_expand(void)
 {
-    char *s = kt_expand_vars("%APPDATA%\k\%NOPE%\%EMPTY%x 100% %", lookup, NULL);
-    CHECK_STR(s, "C:\Users\x\AppData\k\%NOPE%\x 100% %");
+    char *s = kt_expand_vars("%APPDATA%\\k\\%NOPE%\\%EMPTY%x 100% %", lookup, NULL);
+    CHECK_STR(s, "C:\\Users\\x\\AppData\\k\\%NOPE%\\x 100% %");
     free(s);
     s = kt_expand_vars("plain", lookup, NULL);
     CHECK_STR(s, "plain");
