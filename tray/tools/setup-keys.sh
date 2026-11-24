@@ -17,8 +17,8 @@ store() {
   IFS= read -r -s value || true
   printf '\n' >&2
   [ -n "$value" ] || { printf ' skipped (empty)\n' >&2; return 0; }
-  printf '%s' "$value" | "$ST" store --label="/peterk/$key" service /peterk key "$key" username "$KEY_USER"
-  printf ' stored in GNOME Keyring\n' >&2
+  printf '%s' "$value" | "$ST" store --label="kiko $key" kiko-identity "$key"
+  printf ' stored in GNOME Keyring (kiko-identity)\n' >&2
 }
 
 echo "Keys are read with echo off. Get fresh ones first; never paste a key into chat or git." >&2
@@ -32,4 +32,4 @@ store GITHUB_TOKEN
 
 echo >&2
 echo "Verify without printing a value:" >&2
-echo "  $ST lookup service /peterk key NVIDIA_API_KEY username $KEY_USER >/dev/null && echo ok" >&2
+echo "  $ST lookup kiko-identity NVIDIA_API_KEY >/dev/null && echo ok" >&2

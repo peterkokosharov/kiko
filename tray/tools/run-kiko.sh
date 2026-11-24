@@ -9,7 +9,7 @@ if ! command -v "$ST" >/dev/null 2>&1 && [ -x /tmp/opencode/mint-deps/root/usr/b
   ST=/tmp/opencode/mint-deps/root/usr/bin/secret-tool   # local dev fallback on this machine
 fi
 KEY_USER="${KIKO_KEY_USER:-$(id -un)}"
-get() { "$ST" lookup service /peterk key "$1" username "$KEY_USER" 2>/dev/null || true; }
+get() { "$ST" lookup kiko-identity "$1" 2>/dev/null || true; }
 
 KIKO_DIR="${KIKO_DIR:-$(cd "$(dirname "$0")/../../gateway" && pwd)}"
 export GEMINI_API_KEY="$(get GEMINI_API_KEY)"

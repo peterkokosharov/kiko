@@ -43,7 +43,7 @@ secret_tool() {
 }
 key_present() {
   local st; st="$(secret_tool)" || return 1
-  "$st" lookup service /peterk key "$1" username "$KEY_USER" >/dev/null 2>&1
+  "$st" lookup kiko-identity "$1" >/dev/null 2>&1
 }
 health() { curl -fsS --max-time 3 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; }
 wait_health() {
