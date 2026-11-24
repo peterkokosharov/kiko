@@ -93,6 +93,6 @@ owner approval to change: drop `pystray` and `Pillow` from `dependencies` (pypro
 `.github/workflows/win-tray.yml` builds the native Windows tray on a GitHub `windows-latest` runner with Visual
 Studio (`cmake -S tray -B build -A x64 -DKT_FETCH_CJSON=OFF`, Release build, then `ctest`). It runs on
 `workflow_dispatch` and on pushes that touch `tray/**` or the workflow itself. On success it uploads the artifact
-`win-kiko-tray` (`win-kiko-tray.zip`: `kiko-tray.exe`, `README.txt`, `LICENSE`). Download it from the run's
+`win-kiko-tray` (one download gives `win-kiko-tray.zip` with `kiko-tray.exe`, `README.txt`, `LICENSE` at its root; the exe is unsigned, see the SmartScreen note in `WINDOWS-PORTABLE-INSTALL.md`). Download it from the run's
 "Artifacts" section. It publishes no release and uses no secrets. The zip is portable (delete the folder and it is
 gone) and does not bundle Python; `kiko-lite` must be on PATH, or `KIKO_TRAY_COMMAND` must name the start command.

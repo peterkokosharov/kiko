@@ -141,8 +141,8 @@ STARTUP_SUBDIR = "Microsoft/Windows/Start Menu/Programs/Startup"  # relative to 
 
 
 def tray_zip_files(zpath: Path) -> dict:
-    """{relative name: bytes} of the CI artifact. Accepts the artifact zip that wraps the inner
-    win-kiko-tray.zip, and an inner zip with a single top folder (stripped). Unsafe names are refused."""
+    """{relative name: bytes} of the CI artifact. Accepts the flat artifact zip (files at the root),
+    the older artifact zip that wraps the inner win-kiko-tray.zip, and an inner zip with a single top folder (stripped). Unsafe names are refused."""
     z = zipfile.ZipFile(zpath)
     names = [i.filename for i in z.infolist() if not i.is_dir()]
     if not any(n.rsplit("/", 1)[-1] == TRAY_EXE for n in names):

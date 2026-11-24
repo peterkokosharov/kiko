@@ -65,9 +65,13 @@ Exit code 0 = clean, 1 = something was kept.
   the install back and fails.
 
 - `tray` (default folder `apps\kiko-tray`): the native Windows tray. `--zip FILE` is the CI artifact
-  `win-kiko-tray.zip`; the zip you get from "download artifact" (which wraps the inner zip) is accepted too.
+  `win-kiko-tray.zip` (files at its root, as "download artifact" gives it); the older form that wraps an inner
+  zip is accepted too.
   Needs `apps\kiko` (`--kiko DIR` overrides). Unpacks the exe, LICENSE and README, writes `kiko-tray.ini` and
   creates the Start-menu shortcut `kiko tray` under `Programs\apps`; `--autostart` adds one in `Programs\Startup`.
+  SmartScreen: the exe is unsigned, so a copy downloaded with a browser may show "Windows protected your PC".
+  Installing with `install.py` avoids it, because the extracted files carry no download mark. Code signing would
+  remove it for good (not planned).
   Zip entries with `..`, absolute or backslash names are refused. Everything (files, ini, shortcuts) is recorded.
   The ini the installer writes (the tray reads it from next to the exe; env `KIKO_TRAY_COMMAND`, `KIKO_PORT`,
   `KIKO_API_TOKEN` win over it):

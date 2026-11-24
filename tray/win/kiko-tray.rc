@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * Embeds the application manifest (resource type 24 RT_MANIFEST, id 1) and version info.
+ * Embeds the application icon (ICON 1), the application manifest (resource type 24 RT_MANIFEST, id 1) and version info.
  */
 #include <winver.h>
 
+#define IDI_APP 1
+
+IDI_APP ICON "kiko-tray.ico"   /* first icon resource (id 1): Explorer and shortcuts use it */
 1 24 "kiko-tray.manifest"
 
 VS_VERSION_INFO VERSIONINFO

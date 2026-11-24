@@ -493,6 +493,16 @@ class InstallTray(unittest.TestCase):
     def tearDown(self):
         self._td.cleanup()
 
+    def test_flat_artifact_zip(self):
+        flat = self.tmp / "flat.zip"  # CI artifact now: the files at the zip root
+        with zipfile.ZipFile(flat, "w") as z:
+            z.writestr("kiko-tray.exe", b"MZ flat exe")
+            z.writestr("README.txt", b"hi")
+            z.writestr("LICENSE", b"MIT")
+        self.install(flat)
+        self.assertEqual((self.dest / "kiko-tray.exe").read_bytes(), b"MZ flat exe")
+        self.assertTrue((self.dest / "kiko-tray.ini").exists())
+
     def run_py(self, script, *args):
         return subprocess.run([sys.executable, "-I", str(script), *args], capture_output=True,
                               text=True, env=self.env)

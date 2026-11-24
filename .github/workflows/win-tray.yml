@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Builds the native Windows tray (tray/win + tray/common) and uploads win-kiko-tray.zip as an artifact.
+# Builds the native Windows tray (tray/win + tray/common) and uploads its files as the artifact win-kiko-tray.
 name: win-tray
 
 on:
@@ -55,12 +55,15 @@ jobs:
           - If kiko is already running, the tray only watches it.
           - The API token comes from KIKO_API_TOKEN, the ini token_file, or %USERPROFILE%\.kiko\api-token.
 
+          Windows SmartScreen: the exe is unsigned, so a copy downloaded with a browser may show
+          "Windows protected your PC". Installing with tools/win/install.py avoids it, because the
+          extracted files carry no download mark. Code signing would remove it for good (not planned).
+
           License: see LICENSE (MIT).
           '@ | Set-Content -Encoding utf8 win-kiko-tray/README.txt
-          Compress-Archive -Path win-kiko-tray -DestinationPath win-kiko-tray.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: win-kiko-tray
-          path: win-kiko-tray.zip
+          path: win-kiko-tray/*
           if-no-files-found: error
