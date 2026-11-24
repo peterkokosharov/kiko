@@ -146,7 +146,9 @@ def uninstall(app_dir: Path, purge: bool = False, out=print) -> int:
                     out(f"left (not empty): {e['path']}")
     for name in RUNTIME_DIRS:
         d = app_dir / name
-        if d.is_dir():
+        if _is_link(d):
+            out(f"SKIPPED {name}: it is a link or junction, not touched")
+        elif d.is_dir():
             if purge:
                 shutil.rmtree(d)
                 out(f"purged {name}")

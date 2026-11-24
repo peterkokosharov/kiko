@@ -106,6 +106,9 @@ def install_kiko(dest: Path, rex_src: Path | None = None, kikolib: Path | None =
                 if n.startswith("kikolib/") or n in ("kiko-lite", "kiko-lite.cmd"):
                     continue
                 inst.add_file("kiko-lite/" + n, z.read(info))
+        except BaseException:
+            inst.rollback()
+            raise
         finally:
             z.close()
     try:

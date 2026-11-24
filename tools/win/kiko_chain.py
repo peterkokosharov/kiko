@@ -144,7 +144,12 @@ def proc_start(pid: int) -> str:
     import ctypes
     from ctypes import wintypes
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     k32.OpenProcess.restype = wintypes.HANDLE
+    k32.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+    k32.GetProcessTimes.restype = wintypes.BOOL
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    k32.CloseHandle.restype = wintypes.BOOL
     h = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
     if not h:
         return ""
@@ -160,12 +165,14 @@ def proc_start(pid: int) -> str:
 def is_our_chain(pid: int, started: str = "") -> bool:
     """True only when pid is a python process whose command line names kiko_chain.py. Without a readable command
     line (wmic is gone on new Windows) it needs the recorded creation time to match as well; else: no."""
+    if started and proc_start(pid) != started:
+        return False
     info = proc_cmdline(pid)
     if info:
         name, cmd = info
-        return name.lower().startswith("python") and "kiko_chain.py" in cmd.lower()
+        return name.lower().startswith("python") and str(HERE / "kiko_chain.py").lower() in cmd.lower()
     name = proc_image(pid)
-    return bool(name and name.lower().startswith("python") and started and proc_start(pid) == started)
+    return bool(name and name.lower().startswith("python") and started)
 
 
 def stop() -> int:
@@ -219,6 +226,8 @@ def run() -> int:
     procs = []
     logs = []
     try:
+        import signal
+        signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))  # the finally block then stops the children
         for name, cmd, e in (
             ("gateway", [sys.executable, "-I", str(gw_script), "--port", str(GW_PORT),
                          "--token-file", str(DATA / "gwtoken")], None),
@@ -261,13 +270,17 @@ def detach() -> int:
     flags = 0
     if sys.platform == "win32":
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-    subprocess.Popen([sys.executable, "-I", str(Path(__file__).resolve())], creationflags=flags,
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     close_fds=True)
+    child = subprocess.Popen([sys.executable, "-I", str(Path(__file__).resolve())], creationflags=flags,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             close_fds=True)
     for _ in range(240):
         if port_open(KIKO_PORT) and chain_ready():
             print(f"chain started in the background: kiko-lite {HOST}:{KIKO_PORT}")
             return 0
+        if child.poll() is not None:
+            print(f"the chain process exited early (code {child.returncode}); see data/logs, or run "
+                  f"kiko_chain.py in a console", file=sys.stderr)
+            return 1
         time.sleep(0.5)
     print("chain did not come up (kiko-lite /health with our master key) in 120 s; see data/logs", file=sys.stderr)
     return 1

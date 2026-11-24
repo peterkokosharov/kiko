@@ -108,6 +108,21 @@ class InstallKikolib(unittest.TestCase):
         self.assertEqual(tree(self.dest), before)  # nothing removed, nothing added
         self.assertEqual(changed.read_text(), "# edited by user\n")
 
+    def test_reinstall_with_bad_dir_or_shortcut_entry_aborts_intact(self):
+        self.install()
+        recp = self.dest / "install-record.json"
+        rec = json.loads(recp.read_text(encoding="utf-8"))
+        rec["created"] += [{"path": "../evil", "kind": "dir", "sha256": ""},
+                           {"path": "../../x.lnk", "kind": "shortcut", "sha256": ""}]
+        recp.write_text(json.dumps(rec), encoding="utf-8")
+        before, rec_before = tree(self.dest), recp.read_bytes()
+        r = self.run_py(WIN / "install.py", "kikolib", "--dest", str(self.dest))
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("nothing touched", r.stdout)
+        self.assertEqual(r.stdout.count("unsafe path"), 2, r.stdout)
+        self.assertEqual(tree(self.dest), before)
+        self.assertEqual(recp.read_bytes(), rec_before)
+
     def test_refuses_unrecorded_folder(self):
         self.dest.mkdir(parents=True)
         (self.dest / "mine.txt").write_text("x")
@@ -299,6 +314,28 @@ class Confinement(unittest.TestCase):
         self.assertTrue(target.is_dir())
 
 
+class PurgeLink(unittest.TestCase):
+    def test_purge_skips_linked_data(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            app, real = tmp / "app", tmp / "real"
+            app.mkdir()
+            real.mkdir()
+            (real / "keep.txt").write_text("precious")
+            try:
+                os.symlink(real, app / "data", target_is_directory=True)
+            except (OSError, NotImplementedError):
+                if not (sys.platform == "win32" and subprocess.run(
+                        ["cmd", "/c", "mklink", "/J", str(app / "data"), str(real)],
+                        capture_output=True).returncode == 0):
+                    self.skipTest("cannot create links here")
+            (app / "install-record.json").write_text(json.dumps({"created": []}), encoding="utf-8")
+            lines = []
+            uninstall.uninstall(app, True, lines.append)
+            self.assertEqual((real / "keep.txt").read_text(), "precious")
+            self.assertTrue(any("SKIPPED data" in x for x in lines), lines)
+
+
 class FinishFailure(unittest.TestCase):
     def test_failure_in_finish_rolls_back(self):
         with tempfile.TemporaryDirectory() as td:
@@ -348,6 +385,23 @@ class ChainStop(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
             return kiko_chain.stop(), err.getvalue()
 
+    def test_other_kiko_chain_path_not_killed(self):
+        self.pidfile.write_text("4242\n")
+        with mock.patch.object(kiko_chain, "proc_cmdline",
+                               return_value=("python.exe", "python -I D:\\elsewhere\\kiko_chain.py")), \
+                mock.patch.object(kiko_chain, "kill_tree") as kill:
+            self.assertEqual(self.stop()[0], 1)
+        kill.assert_not_called()
+
+    def test_start_time_mismatch_not_killed(self):
+        self.pidfile.write_text("4242\n111\n")
+        with mock.patch.object(kiko_chain, "proc_cmdline",
+                               return_value=("python.exe", str(kiko_chain.HERE / "kiko_chain.py"))), \
+                mock.patch.object(kiko_chain, "proc_start", return_value="222"), \
+                mock.patch.object(kiko_chain, "kill_tree") as kill:
+            self.assertEqual(self.stop()[0], 1)
+        kill.assert_not_called()
+
     def test_foreign_process_not_killed(self):
         self.pidfile.write_text("4242\n")
         with mock.patch.object(kiko_chain, "proc_cmdline", return_value=("python.exe", "python other.py")), \
@@ -368,7 +422,7 @@ class ChainStop(unittest.TestCase):
     def test_our_chain_is_killed(self):
         self.pidfile.write_text("4242\n")
         with mock.patch.object(kiko_chain, "proc_cmdline",
-                               return_value=("python.exe", '"python.exe" -I "C:\\apps\\kiko\\kiko_chain.py"')), \
+                               return_value=("python.exe", f'"python.exe" -I "{kiko_chain.HERE / "kiko_chain.py"}"')), \
                 mock.patch.object(kiko_chain, "kill_tree") as kill:
             self.assertEqual(self.stop()[0], 0)
         kill.assert_called_once_with(4242)
@@ -414,6 +468,18 @@ class ChainStop(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform == "win32", "COM shortcuts are Windows only")
 class Lnk(unittest.TestCase):
+    def test_url_fallback(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            lnk = Path(td) / "Demo.lnk"
+            with mock.patch.object(winlnk, "_com_write", side_effect=OSError("no COM")), \
+                    self.assertLogs("winlnk", "WARNING"):
+                res = winlnk.create_shortcut(lnk, Path(sys.executable))
+            self.assertEqual(res["kind"], "url", res)
+            self.assertTrue(res["path"].endswith(".url"))
+            self.assertTrue(Path(res["path"]).is_file())
+            self.assertFalse(lnk.exists())
+            self.assertEqual(winlnk.read_shortcut(res["path"])["kind"], "url")
+
     def test_roundtrip(self):
         # ignore_cleanup_errors: Windows may hold the fresh .lnk briefly (scanner/shell) after COM release
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:

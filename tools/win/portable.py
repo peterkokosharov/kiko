@@ -101,6 +101,14 @@ def verify(dest: Path) -> list[str]:
     dest = Path(dest)
     problems = []
     for e in load_record(dest)["created"]:
+        if e.get("kind") == "shortcut":
+            if _un._shortcut_path(e.get("path")) is None:
+                problems.append(f"unsafe path: {e.get('path')!r}")
+            continue
+        if e.get("kind") == "dir":
+            if _un._inside(dest, e.get("path")) is None:
+                problems.append(f"unsafe path: {e.get('path')!r}")
+            continue
         if e.get("kind") != "file":
             continue
         p = _un._inside(dest, e.get("path"))
