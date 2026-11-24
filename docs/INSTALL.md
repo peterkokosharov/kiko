@@ -30,6 +30,10 @@ kiko install
 The package puts the code in `/opt/kiko` and a single command in `/usr/bin/kiko`. `kiko install`
 still runs as your normal user, because the keyring and the systemd user session belong to you.
 
+The user unit is called `kiko-lite.service` (the tray hosts use the same name; override it with the env var `KIKO_UNIT`).
+Earlier versions of `kiko install` created `kiko-proxy.service`: running `kiko install` again replaces it
+(it disables and removes the old unit), and `kiko uninstall` removes either one.
+
 ## GTK3 tray for Mint / Ubuntu
 
 Separate package, so it is clear the native GTK3 build is solved:

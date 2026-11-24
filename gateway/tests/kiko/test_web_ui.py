@@ -591,14 +591,14 @@ def real_server(tmp_path):
     port = _free_port()
     cfg = tmp_path / "cfg"
     envv = {**os.environ, "KIKO_CONFIG_DIR": str(cfg), "KIKO_DB_PATH": str(tmp_path / "e2e.db"),
-            "PYTHONPATH": str(REPO)}
+            "PYTHONPATH": os.pathsep.join([str(REPO), str(REPO / "gateway")])}
     proc = subprocess.Popen([sys.executable, "-m", "web", "--host", "127.0.0.1", "--port", str(port)],
                             cwd=REPO, env=envv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
         for _ in range(100):
             if _listening(port):
                 break
-            assert proc.poll() is None, "server exited early"
+            assert proc.poll() is None, "server exited early: " + proc.stdout.read().decode("utf-8", "replace")
             time.sleep(0.1)
         else:
             raise AssertionError("server did not start")

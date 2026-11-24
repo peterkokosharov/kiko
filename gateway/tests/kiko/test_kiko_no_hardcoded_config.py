@@ -17,7 +17,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-DIRS = ("kiko_lite", "kikolib", "web", "web-ui", "tools", "dist")
+# web/ moved out of gateway/ to the repo root; web-ui and dist no longer exist (rglob on a missing dir yields nothing)
+DIRS = ("kiko_lite", "kikolib", "web", "web-ui", "tools", "dist", "../web")
 EXEMPT = {"kikolib/config.py", "tools/kiko_lite_tests_conftest.py", "dist/kiko_start.py",
           "dist/start.bat", "dist/install.bat"}  # the last two: untracked (dist/ is ignored) legacy kiko-full scripts
 SCRIPT_SUFFIXES = {".sh", ".bat", ".cmd", ".service", ".js", ".html"}

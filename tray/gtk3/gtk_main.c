@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: nvidia-nemotron-3-ultra
+ * AI models: nvidia-nemotron-3-ultra, claude-sonnet-5-5
  *
  * gtk_main.c - kiko-tray for Linux Mint / GTK3.
  * Environment: KIKO_PORT (default 4000), KIKO_API_TOKEN or the file ~/.kiko/api-token.
- * kiko is controlled through `systemctl --user ... kiko-lite` (tools/kiko-lite.service in the kiko repo).
+ * kiko is controlled through `systemctl --user ... <unit>` (default kiko-lite, env KIKO_UNIT; see tools/kiko-lite.service).
  */
 #include <stdio.h>
 #include <stdlib.h>

@@ -9,7 +9,7 @@ The Bulgarian original (Latin letters) is kept in `README.bg-latin.md`.
 |------|-------------|
 | `src/kiko_applet.cpp` | Main applet code (KPanelApplet) |
 | `src/kiko_applet.h` | Applet header |
-| `src/kiko_process.cpp` | Service control through `systemctl --user` (kiko-proxy service) |
+| `src/kiko_process.cpp` | Service control through `systemctl --user` (kiko-lite service) |
 | `src/kiko_process.h` | Process header |
 | `src/kiko_log_panel.cpp` | Log panel (billing/usage table) |
 | `src/kiko_log_panel.h` | Log panel header |
@@ -30,7 +30,7 @@ The Bulgarian original (Latin letters) is kept in `README.bg-latin.md`.
 8. `.latin1()` on a temporary `TQString` fixed (dangling pointer).
 9. `TDEGlobal::iconLoader()` / `TDEGlobal::dirs()`: null checks before use (SIGSEGV).
 10. `m_iconStopped.pixmap()`: null check before `setPixmap`.
-11. `setServiceName("kiko-proxy")` matches `kiko-proxy.service`.
+11. `setServiceName("kiko-lite")` matches `kiko-lite.service`.
 
 ## Build
 
@@ -64,10 +64,10 @@ It copies:
 
 1. Restart the kicker panel.
 2. Right-click the kicker, "Add applet", choose "kiko Proxy".
-3. The applet manages `kiko-proxy.service` (systemd user unit):
+3. The applet manages `kiko-lite.service` (systemd user unit):
    ```bash
-   systemctl --user status kiko-proxy.service
-   systemctl --user restart kiko-proxy.service
+   systemctl --user status kiko-lite.service
+   systemctl --user restart kiko-lite.service
    ```
 
 ## Port

@@ -4,10 +4,11 @@
 """The tray's /kiko/v1/* contract: token, exact reply shapes, names-only keys, redacted logs."""
 import http.client
 import json
+import os
 
 import pytest
 
-from kiko_lite import management
+from kiko_lite import keys, management
 from kiko_lite.db import Database
 from kiko_lite.resolver import build_db_app
 from kikolib import server
@@ -78,6 +79,8 @@ def test_models_and_classes_match_the_contract_shapes(srv):
 def test_keys_expose_names_and_presence_but_never_a_value(srv, monkeypatch):
     s, _ = srv
     monkeypatch.setenv("GEMINI_API_KEY", "value-must-never-be-sent")
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)  # the host may have a real one exported
+    monkeypatch.setattr(keys.keystore, "get_secret", lambda *a, **k: None)  # nor a real one in the OS key store
     status, body = _get(s, "/kiko/v1/keys")
     assert status == 200, body
     by_name = {k["name"]: k["present"] for k in body["keys"]}
@@ -134,5 +137,6 @@ def test_token_file_is_created_private_and_read_back(tmp_path, monkeypatch):
     path = tmp_path / "api-token"
     assert len(first) >= 64
     assert path.read_text().splitlines()[0] == first
-    assert oct(path.stat().st_mode & 0o777) == "0o600"
+    if os.name == "posix":  # Windows has no POSIX file modes: os.open(0o600) is ignored there (the profile ACL applies)
+        assert oct(path.stat().st_mode & 0o777) == "0o600"
     assert management.token_for(tmp_path / "kiko.db") == first

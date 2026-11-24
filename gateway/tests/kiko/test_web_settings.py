@@ -202,7 +202,7 @@ def test_e2e_save_in_the_browser_flow_then_a_second_process_reads_it(real_server
     assert "Restart needed" in html and "base_port" in html and "ANTHROPIC_BASE_URL=http://127.0.0.1:5000" in html
     assert "[kiko]" in (cfg / "kiko.toml").read_text(encoding="utf-8")
     r = subprocess.run([sys.executable, "-m", "kiko_lite", "config", "--json"], cwd=REPO, capture_output=True, text=True,
-                       timeout=60, env={**os.environ, "KIKO_CONFIG_DIR": str(cfg), "PYTHONPATH": str(REPO)})
+                       timeout=60, env={**os.environ, "KIKO_CONFIG_DIR": str(cfg), "PYTHONPATH": os.pathsep.join([str(REPO), str(REPO / "gateway")])})
     info = json.loads(r.stdout)
     assert (info["proxy_port"], info["web_port"]) == (5000, 5001)  # the CLI reads what the page wrote
     assert info["settings"]["billing.monthly_cap_usd"] == 4.0 and info["settings"]["logs.retention_days"] == 2

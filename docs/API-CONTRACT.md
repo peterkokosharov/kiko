@@ -80,5 +80,5 @@ Names are environment-variable names (`[A-Za-z_][A-Za-z0-9_]*`, max 64). Any oth
 | reply is not JSON (e.g. a proxy page) | dialogs show "Management API error: HTTP <status>" |
 
 Start/stop/restart are **not** part of the API: Windows runs the configured command, Linux uses
-`systemctl --user start|stop|restart kiko-lite` (unit: `tools/kiko-lite.service` in the kiko repo),
+`systemctl --user start|stop|restart kiko-lite` (unit: `kiko-lite.service`, made by `kiko install` or `tools/install-service.sh`; the name can be changed with env `KIKO_UNIT`),
 macOS uses `launchctl` for a user LaunchAgent.

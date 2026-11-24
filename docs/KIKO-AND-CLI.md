@@ -31,10 +31,10 @@ Check the gateway first:
 
 ```bash
 curl -fsS http://127.0.0.1:4000/health
-systemctl --user status kiko-proxy --no-pager
+systemctl --user status kiko-lite --no-pager
 ```
 
-The gateway is a systemd **user** service (`~/.config/systemd/user/kiko-proxy.service`, enabled
+The gateway is a systemd **user** service (`~/.config/systemd/user/kiko-lite.service`, enabled
 in `default.target.wants`). The GTK3 tray is an XDG autostart entry
 (`~/.config/autostart/kiko-tray.desktop`). Both come back after login.
 

@@ -2,7 +2,7 @@
 
 Status: **UNTESTED and never compiled**. Also usable on Linux Mint with `-DKT_GUI=qt`.
 [API] steps show "Management API not available" until kiko has `/kiko/v1/*` (API-CONTRACT.md).
-Prerequisite: the user unit `kiko-lite.service` is installed (`tools/install-service.sh`).
+Prerequisite: the user unit `kiko-lite.service` is installed (`kiko install`, or `tools/install-service.sh` from the zip; set `KIKO_UNIT` to use another unit name).
 
 | # | Step | Expected result |
 |---|---|---|

@@ -38,7 +38,7 @@ Run time:
 | `libnotify-bin` (`notify-send`) | balloon messages after Start/Stop |
 | `seahorse` | the "Open keyring" button in the Keys window |
 | systemd user session | Start / Stop / Restart (`systemctl --user`) |
-| the kiko gateway and its user unit `kiko-lite.service` | something to control (`kiko install`) |
+| the kiko gateway and its user unit `kiko-lite.service` (override: env `KIKO_UNIT`) | something to control (`kiko install`) |
 
 ## Build
 

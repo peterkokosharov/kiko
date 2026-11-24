@@ -6,7 +6,9 @@
 set -euo pipefail
 
 PORT="${KIKO_PORT:-4000}"
-UNIT_NAME="kiko-proxy.service"
+UNIT_BASE="${KIKO_UNIT:-kiko-lite}"   # the systemd user unit name; the tray hosts read the same KIKO_UNIT
+UNIT_NAME="$UNIT_BASE.service"
+OLD_UNIT_NAME="kiko-proxy.service"   # name used by earlier versions of 'kiko install'; migrated away on install/uninstall
 DB="${KIKO_DB:-$HOME/.kiko/kiko.db}"
 UNIT="$HOME/.config/systemd/user/$UNIT_NAME"
 USER_ROOT="$HOME/.local/share/kiko"
@@ -93,6 +95,11 @@ EOF
     return 0
   fi
 
+  if [ "$OLD_UNIT_NAME" != "$UNIT_NAME" ] && [ -f "$HOME/.config/systemd/user/$OLD_UNIT_NAME" ]; then
+    info "migrating the old unit $OLD_UNIT_NAME to $UNIT_NAME"
+    systemctl --user disable --now "$OLD_UNIT_NAME" >/dev/null 2>&1 || true
+    rm -f "$HOME/.config/systemd/user/$OLD_UNIT_NAME"
+  fi
   mkdir -p "$(dirname "$UNIT")"
   cat > "$UNIT" <<EOF
 [Unit]
@@ -124,6 +131,8 @@ cmd_uninstall() {
   if systemd_ok; then
     systemctl --user disable --now "$UNIT_NAME" >/dev/null 2>&1 || true
     rm -f "$UNIT"
+    systemctl --user disable --now "$OLD_UNIT_NAME" >/dev/null 2>&1 || true
+    rm -f "$HOME/.config/systemd/user/$OLD_UNIT_NAME"
     systemctl --user daemon-reload >/dev/null 2>&1 || true
   fi
   if [ "$SYSTEM_ROOT" = 0 ]; then

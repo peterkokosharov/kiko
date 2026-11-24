@@ -105,7 +105,7 @@ KikoApplet::KikoApplet(const TQString& configFile, TQWidget* parent)
     m_process->setConfigPath(m_configPath);
     m_process->setPort(m_port);
     m_process->setKikoBinary(m_binaryPath);
-    m_process->setServiceName("kiko-proxy");
+    m_process->setServiceName("kiko-lite");
 
     // Initial state
     updateIcon();

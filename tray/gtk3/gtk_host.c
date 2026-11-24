@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: nvidia-nemotron-3-ultra
+ * AI models: nvidia-nemotron-3-ultra, claude-sonnet-5-5
  *
- * gtk_host.c - start/stop/restart kiko through the systemd USER unit kiko-lite.service
- * (installed from the kiko repo: tools/kiko-lite.service, tools/install-service.sh).
+ * gtk_host.c - start/stop/restart kiko through the systemd USER unit (default kiko-lite.service, override with
+ * the env var KIKO_UNIT; created by `kiko install` or by the zip's install-service.sh).
  * Fixed argument vector, no shell.
  */
 #include "gtk_internal.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int gtk_host_service(void *ctx, kt_action action, char *msg, size_t msgsz)
@@ -24,7 +25,9 @@ int gtk_host_service(void *ctx, kt_action action, char *msg, size_t msgsz)
     argv[0] = (char *)"systemctl";
     argv[1] = (char *)"--user";
     argv[2] = (char *)verb;
-    argv[3] = (char *)"kiko-lite";
+    const char *unit = getenv("KIKO_UNIT");
+    if (!unit || !unit[0]) unit = "kiko-lite";
+    argv[3] = (char *)unit;
     argv[4] = NULL;
 
     if (!g_spawn_sync(NULL, argv, NULL, G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL, NULL, NULL, NULL,
@@ -36,8 +39,8 @@ int gtk_host_service(void *ctx, kt_action action, char *msg, size_t msgsz)
     } else {
         char *nl = std_err ? strchr(std_err, '\n') : NULL;
         if (nl) *nl = '\0';
-        snprintf(msg, msgsz, "systemctl --user %s kiko-lite failed: %s", verb,
-                 (std_err && std_err[0]) ? std_err : "see journalctl --user -u kiko-lite");
+        snprintf(msg, msgsz, "systemctl --user %s %s failed: %s", verb, unit,
+                 (std_err && std_err[0]) ? std_err : "see journalctl --user -u <unit>");
     }
     g_clear_error(&err);
     g_free(std_err);

@@ -28,10 +28,10 @@ Gateway-ът работи в `--no-auth` home режим на loopback. Клие
 
 ```bash
 curl -fsS http://127.0.0.1:4000/health
-systemctl --user status kiko-proxy --no-pager
+systemctl --user status kiko-lite --no-pager
 ```
 
-Gateway-ът е systemd **user** сервиз (`~/.config/systemd/user/kiko-proxy.service`, enable-нат в
+Gateway-ът е systemd **user** сервиз (`~/.config/systemd/user/kiko-lite.service`, enable-нат в
 `default.target.wants`). GTK3 tray-то е XDG autostart запис (`~/.config/autostart/kiko-tray.desktop`).
 И двете се връщат при login.
 

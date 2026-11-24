@@ -8,7 +8,7 @@ TDE (Trinity Desktop Environment) panel applet za upravlenie na kiko-lite proxy 
 |------|----------|
 | `src/kiko_applet.cpp` | Glaven applet kod (KPanelApplet) |
 | `src/kiko_applet.h` | Hlavkata na appleta |
-| `src/kiko_process.cpp` | Upravlenie na kiko-proxy servusa prez systemctl --user |
+| `src/kiko_process.cpp` | Upravlenie na kiko-lite servusa prez systemctl --user |
 | `src/kiko_process.h` | Hlavkata na processa |
 | `src/kiko_log_panel.cpp` | Log panel (billing/usage tabela) |
 | `src/kiko_log_panel.h` | Hlavkata na log panela |
@@ -29,7 +29,7 @@ TDE (Trinity Desktop Environment) panel applet za upravlenie na kiko-lite proxy 
 8. `.latin1()` na vremenen TQString — opraven (dangling pointer)
 9. `TDEGlobal::iconLoader()` / `TDEGlobal::dirs()` — null proverki pred izvikvane (SIGSEGV)
 10. `m_iconStopped.pixmap()` — null proverka pred `setPixmap`
-11. `setServiceName("kiko-proxy")` — suotvetstva na `kiko-proxy.service`
+11. `setServiceName("kiko-lite")` — suotvetstva na `kiko-lite.service`
 
 ## Kompiliracene
 
@@ -63,10 +63,10 @@ Skriptata kopira:
 
 1. Restar tnite kicker panela.
 2. Desno-klik v kicker → "Add applet" → izberi "kiko Proxy".
-3. Appletoqt upravlyava `kiko-proxy.service` (user systemd):
+3. Appletoqt upravlyava `kiko-lite.service` (user systemd):
    ```bash
-   systemctl --user status kiko-proxy.service
-   systemctl --user restart kiko-proxy.service
+   systemctl --user status kiko-lite.service
+   systemctl --user restart kiko-lite.service
    ```
 
 ## Port

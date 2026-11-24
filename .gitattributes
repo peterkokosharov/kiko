@@ -1,2 +1,6 @@
 # kikolib is a shared library: always LF so SHA256SUMS is the same on every OS.
 gateway/kikolib/** text eol=lf
+# Files that run on Linux must be LF even on a Windows checkout.
+*.sh text eol=lf
+*.service text eol=lf
+tray/tools/kiko text eol=lf
