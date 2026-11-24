@@ -35,7 +35,8 @@ See [`docs/KIKO-AND-CLI.md`](docs/KIKO-AND-CLI.md) (and `.bg.md`) for Claude Cod
 
 | Folder | What |
 |---|---|
-| `tray/python/` | Dev layer — pystray + Pillow |
+| `tray/python/` | pystray + Pillow tray (private venv on Windows: `tray-py`) |
+| `tray/tk/` | Tk 9 tray, stdlib only (Windows: `tray-tk`); shared logic in `tray/wincore/` |
 | `tray/common/` | Shared C11 core (state machine, HTTP, icon) |
 | `tray/win/` | Windows — Win32 + Shell_NotifyIconW |
 | `tray/gtk3/` | Linux Mint/Cinnamon — GTK3 |

@@ -121,3 +121,75 @@ the installed chain replaces it on the same ports 4000/4100.
 
 Limits: the gateway needs the `claude` CLI on PATH and logged in. If a chain is already listening on 4000 or
 4100, `kiko_chain.py` refuses to start.
+
+## Three tray variants and the swap test
+
+Three trays share one behaviour contract: a round icon whose colour follows `GET /health` on port 4000 (green =
+ok, red = not reachable, grey = not polled yet; the tk variant also shows amber when its panels list errors),
+menu entries Start chain / Stop chain (they run `apps\kiko\kiko_chain.py --detach` / `--stop`, whoever started
+the chain) and Copy API token (from `apps\kiko\data\api-token`; the token is never shown or logged). Port and
+paths are in `kiko-tray.ini` next to the tray (env `KIKO_PORT` and `KIKO_API_TOKEN` win). All three need
+`apps\kiko` and install next to it. Run only one tray at a time: an installer prints a WARNING when another
+variant is installed, and installs anyway.
+
+| Target | Folder | Start-menu shortcut | Needs |
+| --- | --- | --- | --- |
+| `tray` | `apps\kiko-tray` | `kiko tray` | the CI zip (`--zip`); native exe |
+| `tray-tk` | `apps\kiko-tray-tk` | `kiko tray (tk)` | nothing: stdlib Tk 9 (Python 3.14) |
+| `tray-py` | `apps\kiko-tray-py` | `kiko tray (python)` | network to PyPI once, at install |
+
+`tray-tk` stages the `kiko_tk` package (`tray/tk`), `kiko_tray_core.py`, a launcher `kiko_tray_tk.pyw` and the
+ini from git HEAD; the icon is a Tk 9 system-tray icon (`tk systray`), the window opens from the icon. It
+needs no package. `tray-py` stages the `tray` package (`tray/python`), the core, `kiko_tray_py.pyw` and
+`requirements.txt` (pinned: pystray, Pillow, six), then builds a private venv `apps\kiko-tray-py\venv` and
+runs `pip install --no-cache-dir -r requirements.txt` inside it. The system Python is never written to and no
+pip cache is left. The venv is recorded in the install record as `{"kind": "tree"}`; uninstall removes it
+whole (only inside the app folder; a path with `..` or a link is refused). If pip fails, the install is
+rolled back completely. Both shortcuts start `pythonw.exe -I <launcher>` (no console window); a start error
+is written to `<app>\logs\tray-error.log`.
+
+The swap test, run from the repo root before and after the cycle:
+
+```
+python -m pip list --format=freeze > %TEMP%\pip-before.txt
+```
+
+The cycle, one line each (start a tray from its Start-menu shortcut between install and uninstall if you want to see it):
+
+```
+python -I tools/win/install.py tray --zip win-kiko-tray.zip
+python -I %USERPROFILE%\apps\kiko-tray\uninstall.py
+python -I tools/win/install.py tray-tk
+python -I %USERPROFILE%\apps\kiko-tray-tk\uninstall.py
+python -I tools/win/install.py tray-py
+python -I %USERPROFILE%\apps\kiko-tray-py\uninstall.py
+python -I tools/win/install.py tray --zip win-kiko-tray.zip
+```
+
+Expected output after each step:
+
+- `install.py tray --zip ...` (first and last line): `installed kiko-tray win-ci <sha> -> ...\apps\kiko-tray` and `record: ...`.
+- `install.py tray-tk`: `installed kiko-tray-tk tk 3.14.x -> ...\apps\kiko-tray-tk`.
+- `install.py tray-py`: `creating the private venv ... (needs network)`, then `installed kiko-tray-py
+  python-pystray -> ...\apps\kiko-tray-py` (about 30-60 s).
+- every `uninstall.py`: `removed shortcut <name>.lnk`, for `tray-py` also `removed venv`, last line
+  `removed ...\apps\<folder>`; exit code 0. A `WARNING: another kiko tray is installed` line at install time
+  is normal while another variant is still installed; stop that tray first, or accept two icons.
+- After the first `uninstall.py tray` the native tray is gone too; reinstall it from the zip at the end.
+
+Leftover check after each uninstall (nothing may be listed):
+
+```
+dir %USERPROFILE%\apps
+dir "%APPDATA%\Microsoft\Windows\Start Menu\Programs\apps"
+python -m pip list --format=freeze > %TEMP%\pip-after.txt
+fc %TEMP%\pip-before.txt %TEMP%\pip-after.txt
+```
+
+The folder `kiko-tray-tk` / `kiko-tray-py` must be gone from the first listing, its `.lnk` from the second, and
+`fc` must report `no differences` (pystray and Pillow never reach the system Python). `logs\` is kept by
+uninstall only when it exists (it exists only after a start error); use `uninstall.py --purge` to drop it.
+
+Tests: `python -m pytest tools/win/tests/test_tray_variants.py` (temp folders; the venv is mocked except one
+real end-to-end test that is skipped when PyPI is not reachable), `tray/wincore/tests`, `tray/tk/tests`,
+`tray/python/tests`.
