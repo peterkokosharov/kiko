@@ -2,14 +2,27 @@
 # Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
 # LLM: Anthropic Sonnet
 """kiko_tk: JSON client against a mock HTTP server, state/icon mapping, panel shaping, GUI smoke (skips without display)."""
+import atexit
 import json
+import shutil
+import sys
+import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
 import pytest
 
-from kiko_tk import client, model
-from kiko_tk.app import poll
+# The package lives in tray/tk (imported as "tk" by its own tests, run as "kiko_tk" when installed):
+# stage a copy named kiko_tk so this file imports it the way the installed tray does.
+_STAGE = Path(tempfile.mkdtemp(prefix="kiko_tktest_"))
+atexit.register(shutil.rmtree, _STAGE, True)
+shutil.copytree(Path(__file__).resolve().parents[3] / "tray" / "tk", _STAGE / "kiko_tk",
+                ignore=shutil.ignore_patterns("__pycache__", "tests"))
+sys.path.insert(0, str(_STAGE))
+
+from kiko_tk import client, model  # noqa: E402
+from kiko_tk.app import poll  # noqa: E402
 
 STATUS = {
     "server": {"name": "kiko-lite", "version": "0.1.0", "uptime_seconds": 3700, "port": 4100, "db": "x.db"},
@@ -81,7 +94,9 @@ def test_client_unreachable():
 def test_state_and_icon_mapping():
     assert model.overall_state(None) == "unknown"
     assert model.overall_state(None, "down") == "down"
-    assert model.overall_state(None, "auth") == "auth"
+    # /health answered but the panels need a key: the colour follows /health, so still "ok" (tray/tk/model.py)
+    assert model.overall_state(None, "auth") == "ok"
+    assert model.overall_state(None, "nodata") == "ok"
     assert model.overall_state(STATUS) == "errors"  # newest-5 contains a failed request
     clean = {"models": STATUS["models"], "requests": STATUS["requests"][:1]}
     assert model.overall_state(clean) == "ok"

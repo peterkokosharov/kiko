@@ -261,7 +261,7 @@ def add_start_menu_link(inst: "portable.Installation", name: str, target: Path, 
 
 
 def tray_ini_text_variant(kiko: Path) -> str:
-    """kiko-tray.ini of the tk/python variants: python + chain script (Start = --detach, Stop = --stop)."""
+    """kiko-tray.ini of the tk/python variants: python + chain script (Start runs the chain script in run mode as a child, Stop = --stop)."""
     return (f'python = "{sys.executable}"\r\nchain = "{kiko / "kiko_chain.py"}"\r\n'
             f"port = 4000\r\ntoken_file = {kiko / 'data' / 'api-token'}\r\n")
 

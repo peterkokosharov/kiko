@@ -60,6 +60,7 @@ jobs:
         run: cmake --build build -j
 
       - name: ctest
+        shell: bash
         run: ctest --test-dir build --output-on-failure | tee gtk3-ctest.txt
 
       - name: Binary exists and links GTK3

@@ -24,9 +24,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 # A pytest error/failure whose message matches this is NOT counted as a failure: it means the test needs the
-# old "full" proxy stack (litellm, fastapi, kiko_tk - not part of the stdlib-only gateway) or a file that no
-# longer exists in the repo (gateway/web-ui, gateway/dist).  They are counted separately as "stale" and listed.
-STALE = re.compile(r"No module named '(litellm|fastapi|kiko_tk)'|"
+# old "full" proxy stack (litellm, fastapi - not part of the stdlib-only gateway) or a file that no longer
+# exists in the repo (gateway/web-ui, gateway/dist).  They are counted separately as "stale" and every stale
+# test is listed by name in test-results.txt, so none hides unseen.
+# kiko_tk is deliberately NOT here: it is a real package (tray/tk) that its tests stage themselves.
+STALE = re.compile(r"No module named '(litellm|fastapi)'|"
                    r"(FileNotFoundError|not found).{0,200}[\\/](web-ui|dist)[\\/]|dist/\S+ not found")
 
 
@@ -35,6 +37,7 @@ class Result:
         self.name = name
         self.command = command
         self.passed = self.failed = self.skipped = self.stale = 0
+        self.stale_names = []
         self.status = "PASS"       # PASS | FAIL | NOT RUN
         self.note = ""
         self.tail = ""
@@ -76,6 +79,7 @@ def parse_junit(res, xml_path, out, rc):
             k = kids["failure"] if "failure" in kids else kids["error"]
             if STALE.search((k.get("message") or "") + (k.text or "")):
                 res.stale += 1
+                res.stale_names.append(node)
             else:
                 res.failed += 1
                 bad.append("FAILED " + node + " - " + (k.get("message") or "")[:120].replace("\n", " "))
@@ -117,8 +121,8 @@ def suite_header():
     return r
 
 
-def suite_unittest(name, folder):
-    cmd = [sys.executable, "-I", "-m", "unittest", "discover", "-s", folder]
+def suite_unittest(name, folder, top=None):
+    cmd = [sys.executable, "-I", "-m", "unittest", "discover", "-s", folder] + (["-t", top] if top else [])
     r = Result(name, show(cmd))
     rc, out = run(cmd, cwd=ROOT)
     ran = int((re.findall(r"Ran (\d+) test", out) or ["0"])[-1])
@@ -224,6 +228,8 @@ def main():
     if want("win"):
         results.append(suite_unittest("windows tools (unittest)", "tools/win/tests"))
         results.append(suite_unittest("pkgkit (unittest)", "packaging/tests"))
+        results.append(suite_unittest("tk tray model (unittest)", "tray/tk/tests", "tray"))
+        results.append(suite_unittest("windows tray core (unittest)", "tray/wincore/tests", "tray/wincore"))
     if want("tray-python") or want("gateway"):
         py, err = venv_python(not a.no_venv)
         for key, fn, nm in (("tray-python", suite_tray_python, "tray-python (pytest)"),
@@ -258,6 +264,9 @@ def main():
                   % (r.passed, r.failed, r.skipped, r.stale, r.status)]
         if r.note:
             lines.append("  note: " + r.note)
+        if r.stale_names:
+            lines.append("  stale (needs litellm/fastapi or a removed web-ui/dist file; not counted as failure):")
+            lines += ["    " + n for n in r.stale_names]
     lines += ["", "OVERALL: " + overall]
     text = "\n".join(lines) + "\n"
     Path(a.out).write_text(text, encoding="utf-8", newline="\n")
