@@ -139,6 +139,7 @@ class EndToEnd(unittest.TestCase):
                                text=True, stdin=subprocess.DEVNULL)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertFalse(dest.exists())
+            self.assertFalse((prof / "apps").exists())  # created by the install, so removed with it
             self.assertFalse(lnk.exists())
             self.assertFalse((lnk.parent).exists())
 

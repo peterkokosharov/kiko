@@ -4,7 +4,8 @@ REM Author: Peter Kokosharov <peter.kokosharov@gmail.com>
 REM AI models: claude-sonnet-5-5
 REM Removes @NAME@ exactly as listed in install-record.json. Options: /quiet (no pause), /purge (also data\ and logs\).
 REM In the unzipped package it calls the uninstall.cmd of the installed copy; in the installed folder it runs and then
-REM deletes itself and the folder.
+REM deletes itself and the folder. Run it directly or with "cmd /c uninstall.cmd": "call uninstall.cmd" from another
+REM script ends that script too (the self-delete trick), and the exit code is then 0.
 setlocal EnableExtensions
 set "QUIET="
 set "PURGE="
@@ -16,6 +17,8 @@ set "APP=%~dp0"
 if "%APP:~-1%"=="\" set "APP=%APP:~0,-1%"
 if not exist "%APP%\install-record.json" goto :fromzip
 cd /d "%TEMP%"
+set "PC="
+findstr /r /c:"parent_created.: true" "%APP%\install-record.json" >nul 2>nul && set "PC=1"
 set "PY="
 call :try py -3
 if not defined PY call :try python
@@ -28,7 +31,9 @@ if "%RC%"=="0" goto :selfdelete
 exit /b %RC%
 
 :selfdelete
-(goto) 2>nul & del "%~f0" & rmdir "%APP%" 2>nul & exit /b 0
+set "UP=%APP%"
+if defined PC set "UP=%APP%\.."
+(goto) 2>nul & del "%~f0" & rmdir "%APP%" 2>nul & rmdir "%UP%" 2>nul & exit /b 0
 
 :try
 %* -c "import sys; sys.exit(0 if sys.version_info >= (@MINPY_TUPLE@) else 1)" >nul 2>nul

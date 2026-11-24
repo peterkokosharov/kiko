@@ -31,7 +31,7 @@ Build: `python -I build.py --root REPO --app REPO/packaging/app.toml [--out DIR]
 
 ## What a human does
 
-Build the zip with the command above, unzip it, run `install.cmd`; to remove, run `uninstall.cmd`. Release: run the tests,
+Build the zip with the command above, unzip it, run `install.cmd`; to remove, run `uninstall.cmd` (directly or `cmd /c uninstall.cmd`; `call` from another script would end that script). Release: run the tests,
 `python manifest.py write`, commit, tag `pkgkit-vX.Y.Z` locally.
 
 ## What an LLM does

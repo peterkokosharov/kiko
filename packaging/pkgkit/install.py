@@ -43,6 +43,7 @@ class Installation:
         self.app, self.dest = app, Path(dest)
         self.created: list = []
         self.made_dest = False
+        self.parent_created = False  # the folder that holds dest (e.g. apps\) did not exist before; uninstall.cmd removes it if empty
 
     def start(self):
         if self.dest.exists():
@@ -51,6 +52,7 @@ class Installation:
             if any(self.dest.iterdir()):
                 raise Failed(f"{self.dest} exists and is not empty; it is not touched")
         else:
+            self.parent_created = not self.dest.parent.exists()
             self.dest.mkdir(parents=True)
             self.made_dest = True
 
@@ -73,7 +75,7 @@ class Installation:
     def write_record(self) -> Path:
         rec = {"app": self.app["name"], "version": self.app["version"], "pkgkit": self.app.get("pkgkit", ""),
                "installed_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "python": sys.version.split()[0],
-               "created": self.created}
+               "parent_created": self.parent_created, "created": self.created}
         p = self.dest / un.RECORD
         p.write_text(json.dumps(rec, indent=2) + "\n", encoding="utf-8")
         return p
@@ -88,6 +90,11 @@ class Installation:
         (self.dest / un.RECORD).unlink(missing_ok=True)
         if self.made_dest:
             shutil.rmtree(self.dest, ignore_errors=True)
+            if self.parent_created:
+                try:
+                    self.dest.parent.rmdir()
+                except OSError:
+                    pass
         else:
             try:
                 self.dest.rmdir()
