@@ -12,6 +12,7 @@ Code: `tools/win/` (standard library only, Python 3.12+, run with `-I`; the path
 
     python -I tools/win/install.py kikolib [--dest DIR]
     python -I tools/win/install.py kiko [--dest DIR] [--rex-src DIR] [--kikolib DIR]
+    python -I tools/win/install.py tray --zip win-kiko-tray.zip [--dest DIR] [--kiko DIR] [--autostart]
     python -I %USERPROFILE%\apps\kikolib\uninstall.py [--purge]
 
 - Default destination: `%USERPROFILE%\apps\<target>`.
@@ -57,18 +58,38 @@ Exit code 0 = clean, 1 = something was kept.
 
 ## Targets
 
-`install.py` has a table `TARGETS = {name: function(dest) -> Installation}`; add tray and sisi there. A target may also have a `POST` step (runtime data, not recorded).
+`install.py` has a table `TARGETS = {name: function(dest) -> Installation}`; add sisi there. A target may also have a `POST` step (runtime data, not recorded).
 
 - `kikolib`: copies `gateway/kikolib` from git HEAD (`git archive`, not the working tree) into
   `apps\kikolib\kikolib\`, then runs `gateway/tools/kikolib_manifest.py check` on the copy. A mismatch rolls
   the install back and fails.
+
+- `tray` (default folder `apps\kiko-tray`): the native Windows tray. `--zip FILE` is the CI artifact
+  `win-kiko-tray.zip`; the zip you get from "download artifact" (which wraps the inner zip) is accepted too.
+  Needs `apps\kiko` (`--kiko DIR` overrides). Unpacks the exe, LICENSE and README, writes `kiko-tray.ini` and
+  creates the Start-menu shortcut `kiko tray` under `Programs\apps`; `--autostart` adds one in `Programs\Startup`.
+  Zip entries with `..`, absolute or backslash names are refused. Everything (files, ini, shortcuts) is recorded.
+  The ini the installer writes (the tray reads it from next to the exe; env `KIKO_TRAY_COMMAND`, `KIKO_PORT`,
+  `KIKO_API_TOKEN` win over it):
+
+        command = "<abs python>" "<apps>\kiko\kiko_chain.py"
+        port = 4000
+        token_file = <apps>\kiko\data\api-token
+
+  `command` runs the chain in run mode (not `--detach`), so the tray's Job Object owns it: **Stop** ends the
+  whole tree, and quitting or crashing the tray ends it too. A chain started outside the tray (for example by
+  `kiko-chain.cmd`) is only watched; Stop says "started outside the tray" and kills nothing. Without a
+  `command` the tray has no default (it never falls back to `--no-auth`): Start shows a message.
+  `token_file` accepts `%USERPROFILE%` / `%APPDATA%`.
 
 ## Shortcuts (`winlnk.py`)
 
 `create_shortcut(lnk, target, args, workdir, description)` writes a `.lnk` through ctypes COM
 (CLSID_ShellLink, IShellLinkW, IPersistFile), reads it back and compares it. If COM fails it writes a
 `.url` file instead (a warning is logged) and reports `kind: "url"`; the returned `path` then ends in `.url`. `read_shortcut` and `delete_shortcut` complete the round trip.
-Callers record the shortcut with `Installation.add_shortcut(<%APPDATA%-relative path>)`, using the returned `res["path"]` (not the `.lnk` path asked for, which does not exist after a fallback).
+`delete_shortcut` retries a briefly locked file (Defender, the indexer: PermissionError) 10 times, 0.2 s apart; if
+it stays locked it logs a warning and returns False. `uninstall.py` does the same and then reports
+`KEPT (locked): <path>`, keeps the record and exits 1 (re-run it later). Callers record the shortcut with `Installation.add_shortcut(<%APPDATA%-relative path>)`, using the returned `res["path"]` (not the `.lnk` path asked for, which does not exist after a fallback).
 - `kiko`: needs kikolib installed (`apps\kikolib\install-record.json`, else it stops). Layout in `apps\kiko\`:
   `kiko-lite\` (the bundle built from git HEAD by `gateway/tools/kiko_lite_bundle.py`, without its own `kikolib`;
   kikolib is reached through PYTHONPATH `apps\kikolib`), `gateway\scripts\claude_cli_gateway.py` and

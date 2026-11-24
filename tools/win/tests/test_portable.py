@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -464,6 +465,151 @@ class ChainStop(unittest.TestCase):
         finally:
             child.kill()
             child.wait()
+
+
+@unittest.skipUnless(sys.platform == "win32", "COM shortcuts are Windows only")
+class InstallTray(unittest.TestCase):
+    def setUp(self):
+        self._td = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.tmp = Path(self._td.name).resolve()  # the installer resolves --dest (no 8.3 short names)
+        self.apps = self.tmp / "apps"
+        self.dest = self.apps / "kiko-tray"
+        self.appdata = self.tmp / "appdata"
+        self.env = dict(os.environ, APPDATA=str(self.appdata))
+        (self.apps / "kiko").mkdir(parents=True)
+        (self.apps / "kiko" / "install-record.json").write_text("{}", encoding="utf-8")
+        inner = io.BytesIO()
+        with zipfile.ZipFile(inner, "w") as z:
+            z.writestr("win-kiko-tray/kiko-tray.exe", b"MZ fake exe")
+            z.writestr("win-kiko-tray/LICENSE", b"MIT")
+            z.writestr("win-kiko-tray/kiko-tray.ini", b"command = evil")  # must be replaced by ours
+        self.inner = inner.getvalue()
+        self.zip_inner = self.tmp / "win-kiko-tray.zip"
+        self.zip_inner.write_bytes(self.inner)
+        self.zip_artifact = self.tmp / "artifact.zip"  # what "download artifact" gives: the zip in a zip
+        with zipfile.ZipFile(self.zip_artifact, "w") as z:
+            z.writestr("win-kiko-tray.zip", self.inner)
+
+    def tearDown(self):
+        self._td.cleanup()
+
+    def run_py(self, script, *args):
+        return subprocess.run([sys.executable, "-I", str(script), *args], capture_output=True,
+                              text=True, env=self.env)
+
+    def install(self, zipf, *extra):
+        r = self.run_py(WIN / "install.py", "tray", "--dest", str(self.dest), "--zip", str(zipf), *extra)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def lnk(self, name="kiko tray.lnk", sub="Microsoft/Windows/Start Menu/Programs/apps"):
+        return self.appdata / sub / name
+
+    def test_install_ini_shortcut_uninstall(self):
+        self.install(self.zip_inner)
+        self.assertEqual((self.dest / "kiko-tray.exe").read_bytes(), b"MZ fake exe")
+        ini = (self.dest / "kiko-tray.ini").read_text(encoding="utf-8")
+        kiko = self.apps / "kiko"
+        self.assertIn(f'command = "{sys.executable}" "{kiko / "kiko_chain.py"}"', ini)
+        self.assertNotIn("--detach", ini)
+        self.assertNotIn("evil", ini)
+        self.assertIn("port = 4000", ini)
+        self.assertIn(f"token_file = {kiko / 'data' / 'api-token'}", ini)
+        self.assertTrue(self.lnk().is_file())
+        self.assertFalse(self.lnk("kiko tray.lnk", "Microsoft/Windows/Start Menu/Programs/Startup").exists())
+        self.assertEqual(portable.verify(self.dest), [])
+        rec = json.loads((self.dest / "install-record.json").read_text(encoding="utf-8"))
+        self.assertEqual(rec["app"], "kiko-tray")
+        self.assertIn("shortcut", [e["kind"] for e in rec["created"]])
+        r = self.run_py(self.dest / "uninstall.py")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(self.dest.exists())
+        self.assertFalse(self.lnk().exists())
+        self.assertTrue((self.apps / "kiko").is_dir())  # the chain is untouched
+
+    def test_artifact_zip_and_autostart(self):
+        self.install(self.zip_artifact, "--autostart")
+        self.assertTrue((self.dest / "kiko-tray.exe").is_file())
+        startup = self.lnk("kiko tray.lnk", "Microsoft/Windows/Start Menu/Programs/Startup")
+        self.assertTrue(startup.is_file())
+        self.assertTrue(self.lnk().is_file())
+        r = self.run_py(self.dest / "uninstall.py")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(startup.exists())
+        self.assertFalse(self.lnk().exists())
+
+    def test_locked_shortcut_kept_not_crash(self):
+        self.install(self.zip_inner)
+        lnk = self.lnk()
+        real = Path.unlink
+
+        def locked(p, *a, **k):
+            if p.name == "kiko tray.lnk":
+                raise PermissionError(32, "in use")
+            return real(p, *a, **k)
+
+        out = []
+        with mock.patch.dict(os.environ, {"APPDATA": str(self.appdata)}),                 mock.patch.object(Path, "unlink", locked), mock.patch.object(uninstall.time, "sleep") as sl:
+            rc = uninstall.uninstall(self.dest, out=out.append)
+        self.assertEqual(rc, 1)
+        self.assertEqual(sl.call_count, 9)  # 10 tries, 9 pauses
+        self.assertTrue(any("KEPT (locked)" in line for line in out), out)
+        self.assertTrue(lnk.exists())
+        self.assertTrue((self.dest / "install-record.json").exists())  # uninstall can be repeated
+        with mock.patch.object(Path, "unlink", locked), mock.patch.object(winlnk.time, "sleep"),                 self.assertLogs("winlnk", "WARNING"):
+            self.assertFalse(winlnk.delete_shortcut(lnk))
+        with mock.patch.dict(os.environ, {"APPDATA": str(self.appdata)}):
+            self.assertEqual(uninstall.uninstall(self.dest, out=out.append), 0)  # lock gone: clean
+        self.assertFalse(lnk.exists())
+
+    def test_lock_released_after_a_few_tries(self):
+        f = self.tmp / "x.lnk"
+        f.write_text("x")
+        real, n = Path.unlink, [0]
+
+        def flaky(p, *a, **k):
+            n[0] += 1
+            if n[0] < 4:
+                raise PermissionError(32, "in use")
+            return real(p, *a, **k)
+
+        with mock.patch.object(Path, "unlink", flaky), mock.patch.object(winlnk.time, "sleep"):
+            self.assertTrue(winlnk.delete_shortcut(f))
+        self.assertFalse(f.exists())
+
+    def test_non_dict_record_entry_aborts_reinstall(self):
+        self.install(self.zip_inner)
+        recp = self.dest / "install-record.json"
+        rec = json.loads(recp.read_text(encoding="utf-8"))
+        rec["created"].append("not a dict")
+        recp.write_text(json.dumps(rec), encoding="utf-8")
+        r = self.run_py(WIN / "install.py", "tray", "--dest", str(self.dest), "--zip", str(self.zip_inner))
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+        self.assertTrue((self.dest / "kiko-tray.exe").exists())
+
+    def test_requires_kiko_and_zip(self):
+        (self.apps / "kiko" / "install-record.json").unlink()
+        r = self.run_py(WIN / "install.py", "tray", "--dest", str(self.dest), "--zip", str(self.zip_inner))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(self.dest.exists())
+        r = self.run_py(WIN / "install.py", "tray", "--dest", str(self.dest))
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_bad_zip_refused_clean(self):
+        bad = self.tmp / "bad.zip"
+        with zipfile.ZipFile(bad, "w") as z:
+            z.writestr("../evil.txt", b"x")
+            z.writestr("kiko-tray.exe", b"x")
+        r = self.run_py(WIN / "install.py", "tray", "--dest", str(self.dest), "--zip", str(bad))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(self.dest.exists())
+        self.assertFalse((self.tmp / "evil.txt").exists())
+        noexe = self.tmp / "noexe.zip"
+        with zipfile.ZipFile(noexe, "w") as z:
+            z.writestr("a.txt", b"x")
+        r = self.run_py(WIN / "install.py", "tray", "--dest", str(self.dest), "--zip", str(noexe))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(self.dest.exists())
 
 
 @unittest.skipUnless(sys.platform == "win32", "COM shortcuts are Windows only")

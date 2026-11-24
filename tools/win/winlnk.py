@@ -16,6 +16,7 @@ import ctypes
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -170,8 +171,19 @@ def read_shortcut(path) -> dict:
 
 
 def delete_shortcut(path) -> bool:
+    """True when the shortcut is gone. A briefly locked file (Defender, the indexer) is retried about 10
+    times, 0.2 s apart; if it stays locked, a warning is logged and False is returned (no exception)."""
     p = Path(path)
-    if p.exists():
-        p.unlink()
-        return True
+    if not p.exists():
+        return False
+    for i in range(10):
+        try:
+            p.unlink()
+            return True
+        except FileNotFoundError:
+            return True
+        except PermissionError:
+            if i < 9:
+                time.sleep(0.2)
+    log.warning("winlnk: %s is locked; not deleted", p)
     return False

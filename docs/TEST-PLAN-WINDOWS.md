@@ -7,7 +7,9 @@ Note: the app calls Windows DLLs directly (Win32 API from C); build tools are li
 
 | # | Step | Expected result |
 |---|---|---|
-| 1 | Build as in BUILD.md; run `ctest --test-dir build -C Release` | all 6 tests pass |
+| 1 | Build as in BUILD.md; run `ctest --test-dir build -C Release` | all 7 tests pass |
+| 1a | Without a `kiko-tray.ini` and without `KIKO_TRAY_COMMAND`: Menu > Start | message "No start command configured"; nothing is started (never `--no-auth`) |
+| 1b | Installed copy (`install.py tray`): open `kiko-tray.ini` next to the exe | `command = "<python>" "<apps>\kiko\kiko_chain.py"`, `port = 4000`, `token_file = <apps>\kiko\data\api-token`; Settings (step 17) shows the file as token source; env `KIKO_TRAY_COMMAND` / `KIKO_PORT` / `KIKO_API_TOKEN` override the ini |
 | 2 | Stop kiko. Run `kiko-tray.exe` | no console window; a **red** icon near the clock (maybe under the ^ overflow); tooltip "KIKO: not running (port 4000)" |
 | 3 | Run `kiko-tray.exe` a second time | message "kiko-tray is already running"; still one icon |
 | 4 | Start kiko-lite (`kiko-lite serve --no-auth --host 127.0.0.1`) | within about 5 s the icon turns **green**; tooltip "KIKO: running" |
@@ -15,7 +17,7 @@ Note: the app calls Windows DLLs directly (Win32 API from C); build tools are li
 | 6 | Right-click the icon | menu: status line, Start, Stop, Restart, Status, Logs, Models, Model classes, Keys, Costs, Settings, About, "Codex (coming)" (greyed), Quit |
 | 7 | With kiko down: Start enabled, Stop disabled. With kiko up: the reverse | as described |
 | 8 | Menu > Start (kiko down) | icon turns **blue** at once, balloon "kiko started", then green when kiko answers |
-| 9 | Menu > Stop (kiko started by the tray) | balloon "kiko stopped", icon red. Stop on a kiko started elsewhere: balloon "was not started by the tray" |
+| 9 | Menu > Stop (kiko started by the tray) | balloon "kiko stopped", icon red; Task Manager shows no leftover python (kiko_chain, gateway, kiko-lite: the whole tree is gone). Stop on a kiko started elsewhere: balloon "kiko was started outside the tray" and it keeps running |
 | 10 | Menu > Restart | blue, then green |
 | 11 | Double-click the icon | Status window opens (address, health, API info) |
 | 12 | Open Logs, Models, Model classes, Keys, Costs, Settings, About [API] | each is a real window with Segoe UI text; without the API a one-line "Management API not available"; with it: table (Models/Classes/Keys/Costs) or text (Logs, newest line visible) |
@@ -27,5 +29,6 @@ Note: the app calls Windows DLLs directly (Win32 API from C); build tools are li
 | 18 | Stop kiko, open Models/Costs | "kiko is not running"; the UI stays responsive (no freeze) |
 | 19 | Restart Explorer (Task Manager > Windows Explorer > Restart) | the tray icon reappears by itself with the right colour |
 | 20 | Set display scaling to 150%, restart the app; drag a dialog to a monitor with another scaling if available | icon sharp; dialogs and fonts scale, nothing clipped |
-| 21 | Menu > Quit | the icon disappears at once (no ghost icon when the mouse crosses the tray); process gone; kiko keeps running |
-| 22 | Kill `kiko-tray.exe` in Task Manager | the stale icon vanishes when hovered (normal Windows behaviour); a new start works |
+| 21 | Menu > Quit | the icon disappears at once (no ghost icon when the mouse crosses the tray); process gone; a kiko the tray started is ended with it (Job Object); a kiko started elsewhere keeps running |
+| 22 | Kill `kiko-tray.exe` in Task Manager | the stale icon vanishes when hovered (normal Windows behaviour); a kiko the tray started is ended too (kill-on-close); a new start works |
+| 23 | `install.py tray --zip ...` then `apps\kiko-tray\uninstall.py` | Start menu > apps has "kiko tray"; after uninstall the folder and shortcut are gone, `apps\kiko` untouched |

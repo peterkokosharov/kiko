@@ -4,9 +4,11 @@
 """Portable installer.
 
     python -I tools/win/install.py kikolib [--dest DIR]
+    python -I tools/win/install.py kiko [--dest DIR] [--rex-src DIR] [--kikolib DIR]
+    python -I tools/win/install.py tray --zip win-kiko-tray.zip [--dest DIR] [--kiko DIR] [--autostart]
 
 Uninstall: python -I <DIR>/uninstall.py [--purge]. Targets are functions registered in TARGETS;
-add kiko / tray / sisi the same way (a function (dest: Path) -> Installation).
+add sisi the same way (a function (dest: Path) -> Installation).
 """
 import argparse
 import io
@@ -133,7 +135,73 @@ def post_kiko(dest: Path) -> None:
         raise SystemExit("data init failed")
 
 
-TARGETS = {"kikolib": install_kikolib, "kiko": install_kiko}
+TRAY_EXE = "kiko-tray.exe"
+TRAY_INI = "kiko-tray.ini"
+STARTUP_SUBDIR = "Microsoft/Windows/Start Menu/Programs/Startup"  # relative to %APPDATA%
+
+
+def tray_zip_files(zpath: Path) -> dict:
+    """{relative name: bytes} of the CI artifact. Accepts the artifact zip that wraps the inner
+    win-kiko-tray.zip, and an inner zip with a single top folder (stripped). Unsafe names are refused."""
+    z = zipfile.ZipFile(zpath)
+    names = [i.filename for i in z.infolist() if not i.is_dir()]
+    if not any(n.rsplit("/", 1)[-1] == TRAY_EXE for n in names):
+        inner = [n for n in names if n.lower().endswith(".zip")]
+        if len(inner) != 1:
+            raise SystemExit(f"{zpath}: no {TRAY_EXE} and no single inner zip")
+        z = zipfile.ZipFile(io.BytesIO(z.read(inner[0])))
+        names = [i.filename for i in z.infolist() if not i.is_dir()]
+    for n in names:
+        parts = n.split("/")
+        if n.startswith("/") or "\\" in n or ":" in n or ".." in parts or "" in parts:
+            raise SystemExit(f"unsafe name in the zip: {n!r}")
+    tops = {n.split("/", 1)[0] for n in names if "/" in n}
+    strip = len(tops) == 1 and all("/" in n for n in names)
+    files = {(n.split("/", 1)[1] if strip else n): z.read(n) for n in names}
+    if TRAY_EXE not in files:
+        raise SystemExit(f"{TRAY_EXE} not found in {zpath}")
+    return files
+
+
+def tray_ini_text(kiko: Path) -> str:
+    """kiko-tray.ini: run mode (not --detach), so the tray's job owns the chain."""
+    py, chain = sys.executable, kiko / "kiko_chain.py"
+    return (f'command = "{py}" "{chain}"\r\n'
+            f"port = 4000\r\n"
+            f"token_file = {kiko / 'data' / 'api-token'}\r\n")
+
+
+def install_tray(dest: Path, zip_path: Path, kiko: Path | None = None,
+                 autostart: bool = False) -> "portable.Installation":
+    kiko = Path(kiko or dest.parent / "kiko")
+    if not (kiko / portable.RECORD).is_file():
+        raise SystemExit(f"kiko is not installed ({kiko}); run: install.py kiko")
+    files = tray_zip_files(Path(zip_path))
+    commit = git("rev-parse", "HEAD").decode().strip()
+    inst = portable.Installation("kiko-tray", "win-ci " + portable.sha256_bytes(files[TRAY_EXE])[:12],
+                                 dest, "kiko-src", commit)
+    try:
+        dest.mkdir(parents=True, exist_ok=True)
+        for name, data in files.items():
+            if name != TRAY_INI:  # ours is written below
+                inst.add_file(name, data)
+        inst.add_file(TRAY_INI, tray_ini_text(kiko).encode("utf-8"))
+        import winlnk
+        import uninstall
+        links = [(portable.SHORTCUT_SUBDIR + "/kiko tray.lnk", "kiko tray")]
+        if autostart:
+            links.append((STARTUP_SUBDIR + "/kiko tray.lnk", "kiko tray (autostart)"))
+        for rel, desc in links:
+            res = winlnk.create_shortcut(uninstall.appdata_root() / rel, dest / TRAY_EXE, "", str(dest), desc)
+            actual = Path(res["path"]).relative_to(uninstall.appdata_root()).as_posix()
+            inst.add_shortcut(actual)
+    except BaseException:
+        inst.rollback()
+        raise
+    return inst
+
+
+TARGETS = {"kikolib": install_kikolib, "kiko": install_kiko, "tray": install_tray}
 POST = {"kiko": post_kiko}
 
 
@@ -143,14 +211,19 @@ def main(argv=None) -> int:
     ap.add_argument("--dest", help="app folder (default ~/apps/<target>)")
     ap.add_argument("--rex-src", help="rex repo for the gateway files (kiko target; default ~/rex)")
     ap.add_argument("--kikolib", help="installed kikolib folder (kiko target; default <dest>/../kikolib)")
+    ap.add_argument("--zip", help="win-kiko-tray.zip from CI (tray target; the artifact zip is accepted too)")
+    ap.add_argument("--kiko", help="installed kiko folder (tray target; default <dest>/../kiko)")
+    ap.add_argument("--autostart", action="store_true", help="tray target: also add a Startup shortcut")
     a = ap.parse_args(argv)
-    dest = Path(a.dest) if a.dest else portable.default_dest(a.target)
+    if a.target == "tray" and not a.zip:
+        ap.error("tray needs --zip FILE")
+    dest = Path(a.dest) if a.dest else portable.default_dest("kiko-tray" if a.target == "tray" else a.target)
     dest = dest.resolve()
     if (dest / portable.RECORD).exists():
         # check first: a modified file must abort before anything is removed
         try:
             old = portable.verify(dest)
-        except (OSError, ValueError, KeyError) as ex:
+        except (OSError, ValueError, KeyError, AttributeError) as ex:
             print(f"cannot read the old install record ({ex}); aborting, nothing touched")
             return 1
         changed = [p for p in old if p.startswith(("changed:", "unsafe path:", "no sha256:"))]
@@ -166,6 +239,8 @@ def main(argv=None) -> int:
         return 1
     if a.target == "kiko":
         inst = install_kiko(dest, Path(a.rex_src) if a.rex_src else None, Path(a.kikolib) if a.kikolib else None)
+    elif a.target == "tray":
+        inst = install_tray(dest, Path(a.zip), Path(a.kiko).resolve() if a.kiko else None, a.autostart)
     else:
         inst = TARGETS[a.target](dest)
     try:

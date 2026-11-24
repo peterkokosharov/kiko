@@ -70,7 +70,7 @@ endif()
 find_package(Threads REQUIRED)
 add_library(kt_common STATIC
   common/kt_util.c common/kt_json.c common/kt_http.c common/kt_mask.c common/kt_thread.c
-  common/kt_dialog.c common/kt_icon.c common/kt_presenter.c)
+  common/kt_dialog.c common/kt_ini.c common/kt_icon.c common/kt_presenter.c)
 target_include_directories(kt_common PUBLIC common)
 target_compile_definitions(kt_common PUBLIC KT_VERSION="${PROJECT_VERSION}")
 target_link_libraries(kt_common PUBLIC kt_cjson Threads::Threads)
@@ -167,7 +167,7 @@ endif()
 # ---- tests ---------------------------------------------------------------------------------------
 if(KT_BUILD_TESTS)
   enable_testing()
-  foreach(t test_json test_http test_mask test_util_icon test_presenter test_socket)
+  foreach(t test_json test_http test_mask test_ini test_util_icon test_presenter test_socket)
     add_executable(${t} common/tests/${t}.c)
     target_include_directories(${t} PRIVATE common/tests)
     target_link_libraries(${t} PRIVATE kt_common)

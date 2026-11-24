@@ -14,6 +14,7 @@ import json
 import os
 import shutil
 import sys
+import time
 from pathlib import Path
 
 RECORD = "install-record.json"
@@ -80,6 +81,21 @@ def _shortcut_path(rel) -> "Path | None":
     return p
 
 
+def unlink_retry(p: Path, tries: int = 10, delay: float = 0.2) -> bool:
+    """Delete p; a briefly locked file (Defender, the indexer: PermissionError) is retried.
+    False when it is still locked after all tries."""
+    for i in range(tries):
+        try:
+            p.unlink()
+            return True
+        except FileNotFoundError:
+            return True
+        except PermissionError:
+            if i < tries - 1:
+                time.sleep(delay)
+    return False
+
+
 def needs_sha(e: dict) -> bool:
     return e.get("kind") == "file" and e.get("path") not in (RECORD, "uninstall.py")
 
@@ -103,7 +119,10 @@ def uninstall(app_dir: Path, purge: bool = False, out=print) -> int:
             out(f"SKIPPED (unsafe shortcut path): {e.get('path')!r}")
             continue
         if p.exists():
-            p.unlink()
+            if not unlink_retry(p):
+                kept.append(str(e.get("path")))
+                out(f"KEPT (locked): {e.get('path')}")
+                continue
             out(f"removed shortcut {p.name}")
             try:
                 if p.parent.resolve() != sc_root:

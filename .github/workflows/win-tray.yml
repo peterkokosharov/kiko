@@ -46,12 +46,14 @@ jobs:
           Delete this folder and it is gone.
 
           Runtime needs (not included, Python is not bundled):
-          - kiko-lite must be installed and on PATH. "Start" in the menu runs the command in the
-            environment variable KIKO_TRAY_COMMAND; if it is not set, the default is
-              kiko-lite serve --no-auth --host 127.0.0.1
-          - To use another command, set KIKO_TRAY_COMMAND before starting kiko-tray.exe.
-          - If kiko is already running, the tray only watches it and needs neither.
-          - The API token comes from KIKO_API_TOKEN or %USERPROFILE%\.kiko\api-token when present.
+          - Start needs a configured command: "command" in kiko-tray.ini (next to the exe) or the
+            environment variable KIKO_TRAY_COMMAND (it wins). There is no default; without one,
+            Start only shows a message. kiko-tray.ini keys: command, port (default 4000),
+            token_file (the management API token; %USERPROFILE% and %APPDATA% are expanded).
+          - Stop ends the whole process tree the tray started (Job Object). A kiko started outside
+            the tray is never stopped by the tray. Quitting the tray also ends what it started.
+          - If kiko is already running, the tray only watches it.
+          - The API token comes from KIKO_API_TOKEN, the ini token_file, or %USERPROFILE%\.kiko\api-token.
 
           License: see LICENSE (MIT).
           '@ | Set-Content -Encoding utf8 win-kiko-tray/README.txt

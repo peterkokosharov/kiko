@@ -84,6 +84,11 @@ class Installation:
                 p.unlink()
             elif e["kind"] == "dir" and p.is_dir():
                 shutil.rmtree(p, ignore_errors=True)
+        for e in self.created:
+            if e["kind"] == "shortcut":
+                sp = _un._shortcut_path(e["path"])
+                if sp is not None:
+                    sp.unlink(missing_ok=True)
         for n in (UNINSTALL_NAME, RECORD):
             (self.dest / n).unlink(missing_ok=True)
         try:

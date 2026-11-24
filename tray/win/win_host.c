@@ -2,8 +2,10 @@
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
  *
  * win_host.c - starts and stops kiko as a child of the tray.  Windows has no service for kiko-lite,
- * so "Start" runs the configured command (env KIKO_TRAY_COMMAND) without a console window and keeps
- * the process handle.  "Stop" can only stop a process this tray started.
+ * so "Start" runs the configured command (env KIKO_TRAY_COMMAND or kiko-tray.ini) without a console
+ * window, inside a Job Object (kill-on-close), and keeps the job handle.  "Stop" terminates the whole
+ * job (the child and everything it started); it never touches a process this tray did not start.
+ * Closing the job (tray quit or crash) also ends the child tree.
  * These functions block (up to 5 s on stop): the presenter calls them on a worker thread.
  */
 #include "win_internal.h"
@@ -15,6 +17,7 @@
 
 static wchar_t *g_command;       /* malloc'd command line */
 static HANDLE   g_proc;          /* child started by the tray, or NULL */
+static HANDLE   g_job;           /* job object that owns the child tree, or NULL */
 
 /* Looks for name(.exe) in each directory of %PATH%, one directory at a time.  Empty entries and "."
  * (both mean the current directory) are skipped, and relative entries are ignored: a program in the
@@ -91,16 +94,38 @@ void win_host_init(const wchar_t *command_line)
 {
     SetSearchPathMode(BASE_SEARCH_PATH_ENABLE_SAFE_SEARCHMODE | BASE_SEARCH_PATH_PERMANENT);
     free(g_command);
+    g_command = NULL;
+    if (!command_line || !command_line[0]) return;   /* not configured: Start explains */
     g_command = (wchar_t *)malloc((wcslen(command_line) + 1) * sizeof(wchar_t));
     if (g_command) wcscpy(g_command, command_line);
+}
+
+/* Ends the job (the whole child tree) and forgets the handles. */
+static void kill_job(void)
+{
+    if (g_job) { TerminateJobObject(g_job, 1); CloseHandle(g_job); g_job = NULL; }
+    if (g_proc) { WaitForSingleObject(g_proc, 5000); CloseHandle(g_proc); g_proc = NULL; }
+}
+
+static HANDLE make_job(void)
+{
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
+    HANDLE job = CreateJobObjectW(NULL, NULL);
+    if (!job) return NULL;
+    memset(&info, 0, sizeof info);
+    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &info, sizeof info)) {
+        CloseHandle(job);
+        return NULL;
+    }
+    return job;
 }
 
 static int child_alive(void)
 {
     if (!g_proc) return 0;
     if (WaitForSingleObject(g_proc, 0) == WAIT_TIMEOUT) return 1;
-    CloseHandle(g_proc);
-    g_proc = NULL;
+    kill_job();   /* the main child ended: clean up anything it left behind */
     return 0;
 }
 
@@ -116,23 +141,43 @@ static int do_start(char *msg, size_t msgsz)
         return 0;
     }
     if (!g_command || !g_command[0]) {
-        snprintf(msg, msgsz, "No start command configured (KIKO_TRAY_COMMAND)");
+        snprintf(msg, msgsz, "No start command configured: set command in kiko-tray.ini or KIKO_TRAY_COMMAND");
         return -1;
     }
     cmd = resolve_command(g_command);   /* full path, never the current directory */
-    if (!cmd) { snprintf(msg, msgsz, "Cannot find the kiko program (check KIKO_TRAY_COMMAND)"); return -1; }
+    if (!cmd) { snprintf(msg, msgsz, "Cannot find the kiko program (check the start command)"); return -1; }
     memset(&si, 0, sizeof si);
     si.cb = sizeof si;
     memset(&pi, 0, sizeof pi);
-    ok = CreateProcessW(NULL, cmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
-    free(cmd);
-    if (!ok) {
-        snprintf(msg, msgsz, "Could not start kiko (Windows error %lu). Check KIKO_TRAY_COMMAND.",
-                 (unsigned long)GetLastError());
+    g_job = make_job();
+    if (!g_job) {
+        free(cmd);
+        snprintf(msg, msgsz, "Could not create a job object (Windows error %lu)", (unsigned long)GetLastError());
         return -1;
     }
-    CloseHandle(pi.hThread);
+    /* suspended, so the child is inside the job before it can start anything of its own */
+    ok = CreateProcessW(NULL, cmd, NULL, NULL, FALSE, CREATE_NO_WINDOW | CREATE_SUSPENDED, NULL, NULL, &si, &pi);
+    free(cmd);
+    if (!ok) {
+        snprintf(msg, msgsz, "Could not start kiko (Windows error %lu). Check the start command.",
+                 (unsigned long)GetLastError());
+        CloseHandle(g_job);
+        g_job = NULL;
+        return -1;
+    }
+    if (!AssignProcessToJobObject(g_job, pi.hProcess)) {
+        DWORD err = GetLastError();
+        TerminateProcess(pi.hProcess, 1);
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        CloseHandle(g_job);
+        g_job = NULL;
+        snprintf(msg, msgsz, "Could not put kiko into a job object (Windows error %lu)", (unsigned long)err);
+        return -1;
+    }
     g_proc = pi.hProcess;
+    ResumeThread(pi.hThread);
+    CloseHandle(pi.hThread);
     snprintf(msg, msgsz, "kiko started");
     return 0;
 }
@@ -140,13 +185,10 @@ static int do_start(char *msg, size_t msgsz)
 static int do_stop(char *msg, size_t msgsz)
 {
     if (!child_alive()) {
-        snprintf(msg, msgsz, "kiko was not started by the tray; stop it where it was started");
+        snprintf(msg, msgsz, "kiko was started outside the tray; stop it where it was started");
         return -1;
     }
-    TerminateProcess(g_proc, 1);
-    WaitForSingleObject(g_proc, 5000);
-    CloseHandle(g_proc);
-    g_proc = NULL;
+    kill_job();   /* the whole tree: kiko_chain.py, the gateway and kiko-lite */
     snprintf(msg, msgsz, "kiko stopped");
     return 0;
 }
@@ -169,7 +211,7 @@ int win_host_service(void *ctx, kt_action action, char *msg, size_t msgsz)
 
 void win_host_shutdown(void)
 {
-    if (g_proc) { CloseHandle(g_proc); g_proc = NULL; }   /* the child keeps running; only our handle goes */
+    kill_job();   /* quitting the tray ends what it started (the job is kill-on-close anyway) */
     free(g_command);
     g_command = NULL;
 }
