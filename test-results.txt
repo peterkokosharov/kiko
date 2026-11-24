@@ -1,6 +1,6 @@
 kiko test results
-date (UTC): 2026-11-24 10:10:28
-git commit: 02d9a54 (+uncommitted changes)
+date (UTC): 2026-11-24 11:06:43
+git commit: 3236d80
 os: Windows 11 (AMD64), python 3.14.7
 
 suite: ai-header-check
@@ -14,8 +14,8 @@ suite: tray-python (pytest)
   passed: 71  failed: 0  skipped: 4  stale: 0  -> PASS
 suite: gateway kiko_lite/kikolib/web/spy (pytest)
   command: cd gateway && PYTHONPATH=<repo>:<repo>/gateway pytest tests/kiko --continue-on-collection-errors
-  passed: 1364  failed: 7  skipped: 24  stale: 143  -> FAIL
+  passed: 1372  failed: 0  skipped: 24  stale: 143  -> PASS
   note: the vendored LiteLLM test tree under gateway/tests (everything except tests/kiko) is not run
 not run here: tray C core (ctest): cmake/ctest not installed
 
-OVERALL: FAIL
+OVERALL: PASS
