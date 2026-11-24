@@ -87,3 +87,12 @@ kiko-lite and absolute log paths (launchd does not expand `~` or `$HOME`): repla
 `pyproject.toml` and `installer.cfg` still list pystray and Pillow for the old Python tray. They need
 owner approval to change: drop `pystray` and `Pillow` from `dependencies` (pyproject) and from
 `[Include] packages` (installer.cfg) when the native tray replaces the Python one.
+
+## CI build (Windows tray)
+
+`.github/workflows/win-tray.yml` builds the native Windows tray on a GitHub `windows-latest` runner with Visual
+Studio (`cmake -S tray -B build -A x64 -DKT_FETCH_CJSON=OFF`, Release build, then `ctest`). It runs on
+`workflow_dispatch` and on pushes that touch `tray/**` or the workflow itself. On success it uploads the artifact
+`win-kiko-tray` (`win-kiko-tray.zip`: `kiko-tray.exe`, `README.txt`, `LICENSE`). Download it from the run's
+"Artifacts" section. It publishes no release and uses no secrets. The zip is portable (delete the folder and it is
+gone) and does not bundle Python; `kiko-lite` must be on PATH, or `KIKO_TRAY_COMMAND` must name the start command.

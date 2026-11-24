@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: MIT
+# Builds the native Windows tray (tray/win + tray/common) and uploads win-kiko-tray.zip as an artifact.
+name: win-tray
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "tray/**"
+      - ".github/workflows/win-tray.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        shell: pwsh
+        run: cmake -S tray -B build -A x64 -DKT_FETCH_CJSON=OFF
+
+      - name: Build (Release)
+        shell: pwsh
+        run: cmake --build build --config Release
+
+      - name: Test
+        shell: pwsh
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path win-kiko-tray | Out-Null
+          Copy-Item build/Release/kiko-tray.exe win-kiko-tray/
+          Copy-Item LICENSE win-kiko-tray/
+          @'
+          kiko-tray for Windows (native tray icon)
+
+          Start: double-click kiko-tray.exe. A tray icon appears; right-click it for the menu
+          (status, start/stop, dialogs).
+
+          Portable: nothing is installed and nothing is written to the registry.
+          Delete this folder and it is gone.
+
+          Runtime needs (not included, Python is not bundled):
+          - kiko-lite must be installed and on PATH. "Start" in the menu runs the command in the
+            environment variable KIKO_TRAY_COMMAND; if it is not set, the default is
+              kiko-lite serve --no-auth --host 127.0.0.1
+          - To use another command, set KIKO_TRAY_COMMAND before starting kiko-tray.exe.
+          - If kiko is already running, the tray only watches it and needs neither.
+          - The API token comes from KIKO_API_TOKEN or %USERPROFILE%\.kiko\api-token when present.
+
+          License: see LICENSE (MIT).
+          '@ | Set-Content -Encoding utf8 win-kiko-tray/README.txt
+          Compress-Archive -Path win-kiko-tray -DestinationPath win-kiko-tray.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win-kiko-tray
+          path: win-kiko-tray.zip
+          if-no-files-found: error
