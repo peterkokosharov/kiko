@@ -58,6 +58,11 @@ class Installation:
         (self.dest / rel).write_bytes(data)
         self.created.append({"path": rel, "kind": "file", "sha256": sha256_bytes(data)})
 
+    def add_tree(self, rel: str):
+        """Record a folder that will be filled by another tool (a private venv): uninstall removes it whole.
+        Call before creating it, so a failed install is rolled back too."""
+        self.created.append({"path": rel.replace("\\", "/"), "kind": "tree", "sha256": ""})
+
     def add_shortcut(self, appdata_rel: str):
         """Record a shortcut (path relative to %APPDATA%) that was already created."""
         self.created.append({"path": appdata_rel.replace("\\", "/"), "kind": "shortcut", "sha256": ""})
@@ -82,7 +87,7 @@ class Installation:
                 continue
             if e["kind"] == "file" and p.is_file():
                 p.unlink()
-            elif e["kind"] == "dir" and p.is_dir():
+            elif e["kind"] in ("dir", "tree") and p.is_dir():
                 shutil.rmtree(p, ignore_errors=True)
         for e in self.created:
             if e["kind"] == "shortcut":
@@ -110,7 +115,7 @@ def verify(dest: Path) -> list[str]:
             if _un._shortcut_path(e.get("path")) is None:
                 problems.append(f"unsafe path: {e.get('path')!r}")
             continue
-        if e.get("kind") == "dir":
+        if e.get("kind") in ("dir", "tree"):
             if _un._inside(dest, e.get("path")) is None:
                 problems.append(f"unsafe path: {e.get('path')!r}")
             continue

@@ -1,0 +1,4 @@
+# Pinned for the private venv of the tray-py install target (pip, from PyPI; nothing goes into the system Python).
+pystray==0.19.5
+Pillow==13.0.0
+six==1.17.0

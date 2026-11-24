@@ -36,13 +36,17 @@ MISSING = {"Costs": "costs / monthly cap (old web-ui /api/billing)",
 
 
 def poll(base: str, key: str) -> tuple[dict[str, Any] | None, str]:
-    """One blocking round: (status, "") or (None, "down" | "auth")."""
+    """One blocking round: (status, "") or (None, "down" | "auth" | "nodata").
+
+    "down" = /health does not answer; "auth" = /health ok but the panels refused the key; "nodata" = /health ok
+    but the panels could not be read."""
     try:
         return client.fetch_status(base, key), ""
     except client.AuthNeeded:
-        return None, "auth"
+        problem = "auth"
     except client.Unreachable:
-        return None, "down"
+        problem = "nodata"
+    return (None, problem) if client.health(base) else (None, "down")
 
 
 def make_icon(root: tk.Misc, color: str, size: int = 16) -> tk.PhotoImage:
@@ -56,9 +60,12 @@ def make_icon(root: tk.Misc, color: str, size: int = 16) -> tk.PhotoImage:
 
 
 class App:
-    def __init__(self, root: tk.Tk, base: str, key: str = "") -> None:
+    def __init__(self, root: tk.Tk, base: str, key: str = "", chain: Any = None) -> None:
+        """chain: optional object with ``config`` (kiko_tray_core.Config) and the core functions; None = no Start/Stop."""
         self.root, self.base, self.key = root, base.rstrip("/"), key
+        self.chain = chain
         self.q: queue.Queue[tuple[dict[str, Any] | None, str]] = queue.Queue()
+        self.notes: queue.Queue[str] = queue.Queue()  # one-line results of Start/Stop
         self.wake = threading.Event()
         self.stop = threading.Event()
         self.icons = {s: make_icon(root, c) for s, c in model.COLORS.items()}
@@ -81,6 +88,9 @@ class App:
             t.tag_configure("bad", foreground="#b91c1c")
             t.tag_configure("ok", foreground="#15803d")
         ttk.Button(root, text="Refresh", command=self.wake.set).pack(side="right", padx=6, pady=3)
+        if chain is not None:
+            ttk.Button(root, text="Stop chain", command=lambda: self.chain_action("stop")).pack(side="right", pady=3)
+            ttk.Button(root, text="Start chain", command=lambda: self.chain_action("start")).pack(side="right", pady=3)
         self._setup_tray()
         root.protocol("WM_DELETE_WINDOW", self.close_window)
         threading.Thread(target=self._worker, daemon=True).start()
@@ -117,6 +127,10 @@ class App:
                     break
             if latest is not None:
                 self.show(*latest)
+            try:
+                self.banner.set(f"{self.base}  |  {self.notes.get_nowait()}")
+            except queue.Empty:
+                pass
         finally:
             self.root.after(200, self._drain)
 
@@ -148,6 +162,26 @@ class App:
         else:
             self.quit()
 
+    def chain_action(self, action: str) -> None:
+        """Start/Stop of the installed chain (kiko_chain.py --detach / --stop) in a thread; the banner shows the result."""
+        if self.chain is None:
+            return
+        self.banner.set(f"{action} chain ...")
+
+        def work() -> None:
+            ok, msg = self.chain.run_chain(self.chain.config, action)
+            self.notes.put(f"{action}: {'ok' if ok else 'FAILED'} {msg}".strip())
+            self.wake.set()
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def copy_token(self) -> None:
+        tok = self.key
+        if tok:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(tok)
+            self.banner.set("API token copied to the clipboard")
+
     def open_web(self) -> None:
         webbrowser.open(self.base + "/ui")
 
@@ -170,9 +204,15 @@ class App:
         menu = tk.Menu(self.root, tearoff=0)
         menu.add_command(label="Open window", command=self.open_window)
         menu.add_command(label="Open web UI in browser", command=self.open_web)
+        if self.chain is not None:
+            menu.add_separator()
+            menu.add_command(label="Start chain", command=lambda: self.chain_action("start"))
+            menu.add_command(label="Stop chain", command=lambda: self.chain_action("stop"))
+        if self.key:
+            menu.add_command(label="Copy API token", command=self.copy_token)
         menu.add_separator()
         menu.add_command(label="Quit", command=self.quit)
-        # kiko-lite has no start/stop/restart endpoint and its CLI only has a foreground `serve`: not offered.
+        # Start/Stop go through kiko_chain.py of the installed chain (see chain_action); standalone: not offered.
 
         def popup() -> None:
             menu.tk_popup(self.root.winfo_pointerx(), self.root.winfo_pointery())

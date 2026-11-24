@@ -17,9 +17,12 @@ def _items(status: dict[str, Any], key: str) -> list[dict[str, Any]]:
 
 
 def overall_state(status: dict[str, Any] | None, problem: str = "") -> str:
-    """ok / errors / down (not reachable) / auth (client key needed) / unknown (nothing fetched yet)."""
+    """ok / errors / down (/health does not answer) / unknown (nothing fetched yet).
+
+    The colour follows /health: when /health answers but the panels cannot be read (client key needed, odd
+    answer; problem "auth" / "nodata") the state is still "ok"."""
     if status is None:
-        return {"": "unknown", "auth": "auth"}.get(problem, "down")
+        return {"": "unknown", "auth": "ok", "nodata": "ok"}.get(problem, "down")
     bad_model = any(m.get("state") == "bad" for m in _items(status, "models"))
     bad_req = any(not r.get("ok", True) for r in _items(status, "requests")[:RECENT_FOR_STATE])
     return "errors" if bad_model or bad_req else "ok"
@@ -27,8 +30,10 @@ def overall_state(status: dict[str, Any] | None, problem: str = "") -> str:
 
 def tooltip(state: str, status: dict[str, Any] | None, base: str, problem: str = "") -> str:
     if status is None:
-        if state == "auth":
-            return "kiko-lite needs a client key (--key / KIKO_TK_KEY)"
+        if problem == "auth":
+            return "kiko-lite ok; panels need a client key (--key / KIKO_TK_KEY / token file)"
+        if problem == "nodata":
+            return "kiko-lite ok; no panel data"
         return f"kiko-lite not reachable ({base})" if state == "down" else "kiko-lite: waiting"
     models = _items(status, "models")
     bad = sum(1 for m in models if m.get("state") == "bad")

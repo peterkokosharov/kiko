@@ -6,6 +6,8 @@
     python -I tools/win/install.py kikolib [--dest DIR]
     python -I tools/win/install.py kiko [--dest DIR] [--rex-src DIR] [--kikolib DIR]
     python -I tools/win/install.py tray --zip win-kiko-tray.zip [--dest DIR] [--kiko DIR] [--autostart]
+    python -I tools/win/install.py tray-tk [--dest DIR] [--kiko DIR]     (stdlib Tk 9 tray, no packages)
+    python -I tools/win/install.py tray-py [--dest DIR] [--kiko DIR]     (pystray + Pillow in a private venv)
 
 Uninstall: python -I <DIR>/uninstall.py [--purge]. Targets are functions registered in TARGETS;
 add sisi the same way (a function (dest: Path) -> Installation).
@@ -204,8 +206,136 @@ def install_tray(dest: Path, zip_path: Path, kiko: Path | None = None,
         raise
     return inst
 
+TRAY_VARIANTS = {  # install target -> (default folder, Start-menu name)
+    "tray": ("kiko-tray", "kiko tray"),
+    "tray-tk": ("kiko-tray-tk", "kiko tray (tk)"),
+    "tray-py": ("kiko-tray-py", "kiko tray (python)"),
+}
+VENV_DIR = "venv"
+REQUIREMENTS = "requirements.txt"
 
-TARGETS = {"kikolib": install_kikolib, "kiko": install_kiko, "tray": install_tray}
+
+def other_trays(dest: Path) -> list[str]:
+    """Other kiko tray variants installed next to dest (default folders); only one should run at a time."""
+    found = []
+    for folder, name in TRAY_VARIANTS.values():
+        d = dest.parent / folder
+        if d.resolve() != dest.resolve() and (d / portable.RECORD).is_file():
+            found.append(f"{name} ({d})")
+    return found
+
+
+def warn_other_trays(dest: Path) -> None:
+    for o in other_trays(dest):
+        print(f"WARNING: another kiko tray is installed: {o}. Run only one tray at a time "
+              f"(its own uninstall.py removes it); continuing anyway.")
+
+
+def repo_py_files(prefix: str) -> dict:
+    """{name: bytes} of the *.py files directly in <prefix> at git HEAD (no sub-folders, so no tests)."""
+    z = archive_head(prefix)
+    pre = prefix.rstrip("/") + "/"
+    return {i.filename[len(pre):]: z.read(i) for i in z.infolist()
+            if not i.is_dir() and i.filename.startswith(pre) and "/" not in i.filename[len(pre):]
+            and i.filename.endswith(".py")}
+
+
+def pythonw() -> Path:
+    """pythonw.exe next to the running Python (no console window); the python itself elsewhere."""
+    w = Path(sys.executable).with_name("pythonw.exe")
+    return w if w.is_file() else Path(sys.executable)
+
+
+def add_start_menu_link(inst: "portable.Installation", name: str, target: Path, args: str, workdir: Path,
+                        desc: str) -> None:
+    import winlnk
+    import uninstall
+    res = winlnk.create_shortcut(uninstall.appdata_root() / portable.SHORTCUT_SUBDIR / f"{name}.lnk",
+                                 target, args, str(workdir), desc)
+    try:
+        actual = Path(res["path"]).relative_to(uninstall.appdata_root()).as_posix()
+    except ValueError:
+        Path(res["path"]).unlink(missing_ok=True)  # created but cannot be recorded: do not leave it
+        raise
+    inst.add_shortcut(actual)
+
+
+def tray_ini_text_variant(kiko: Path) -> str:
+    """kiko-tray.ini of the tk/python variants: python + chain script (Start = --detach, Stop = --stop)."""
+    return (f'python = "{sys.executable}"\r\nchain = "{kiko / "kiko_chain.py"}"\r\n'
+            f"port = 4000\r\ntoken_file = {kiko / 'data' / 'api-token'}\r\n")
+
+
+def stage_tray(inst: "portable.Installation", kiko: Path, launcher_src: str, launcher_name: str,
+               package_src: str, package_dir: str) -> None:
+    """Common files of the tk and python variants: package folder, shared core, launcher, ini."""
+    core = archive_head("tray/wincore").read("tray/wincore/kiko_tray_core.py")
+    launcher = archive_head(launcher_src.rsplit("/", 1)[0]).read(launcher_src)
+    inst.dest.mkdir(parents=True, exist_ok=True)
+    inst.ensure_dirs(package_dir)
+    for name, data in repo_py_files(package_src).items():
+        if name != "launcher.py":
+            inst.add_file(f"{package_dir}/{name}", data)
+    inst.add_file("kiko_tray_core.py", core)
+    inst.add_file(launcher_name, launcher)
+    inst.add_file("kiko-tray.ini", tray_ini_text_variant(kiko).encode("utf-8"))
+
+
+def need_kiko(dest: Path, kiko: Path | None) -> Path:
+    kiko = Path(kiko or dest.parent / "kiko")
+    if not (kiko / portable.RECORD).is_file():
+        raise SystemExit(f"kiko is not installed ({kiko}); run: install.py kiko")
+    return kiko
+
+
+def install_tray_tk(dest: Path, kiko: Path | None = None) -> "portable.Installation":
+    kiko = need_kiko(dest, kiko)
+    warn_other_trays(dest)
+    commit = git("rev-parse", "HEAD").decode().strip()
+    inst = portable.Installation("kiko-tray-tk", "tk " + sys.version.split()[0], dest, "kiko-src", commit)
+    try:
+        stage_tray(inst, kiko, "tray/tk/launcher.py", "kiko_tray_tk.pyw", "tray/tk", "kiko_tk")
+        add_start_menu_link(inst, "kiko tray (tk)", pythonw(), f'-I "{dest / "kiko_tray_tk.pyw"}"', dest,
+                            "kiko tray (tk)")
+    except BaseException:
+        inst.rollback()
+        raise
+    return inst
+
+
+def create_venv(venv: Path, requirements: Path) -> None:
+    """Private venv with the pinned packages from PyPI. Never touches the system Python; no pip cache is left."""
+    subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
+    vpy = venv / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("PIP_")}
+    r = subprocess.run([str(vpy), "-m", "pip", "install", "--disable-pip-version-check", "--no-input",
+                        "--no-cache-dir", "-r", str(requirements)], env=env, capture_output=True, text=True)
+    if r.returncode:
+        raise SystemExit("pip install into the private venv failed:\n" + (r.stdout + r.stderr)[-2000:])
+
+
+def install_tray_py(dest: Path, kiko: Path | None = None) -> "portable.Installation":
+    kiko = need_kiko(dest, kiko)
+    warn_other_trays(dest)
+    commit = git("rev-parse", "HEAD").decode().strip()
+    inst = portable.Installation("kiko-tray-py", "python-pystray", dest, "kiko-src", commit)
+    try:
+        stage_tray(inst, kiko, "tray/python/launcher.py", "kiko_tray_py.pyw", "tray/python", "tray")
+        inst.add_file(REQUIREMENTS, archive_head("tray/python").read("tray/python/" + REQUIREMENTS))
+        inst.add_tree(VENV_DIR)  # recorded first: a failed pip run is rolled back with it
+        print("creating the private venv and installing pystray + Pillow from PyPI (needs network) ...")
+        create_venv(dest / VENV_DIR, dest / REQUIREMENTS)
+        vw = dest / VENV_DIR / "Scripts" / "pythonw.exe"
+        add_start_menu_link(inst, "kiko tray (python)", vw if vw.is_file() else pythonw(),
+                            f'-I "{dest / "kiko_tray_py.pyw"}"', dest, "kiko tray (python)")
+    except BaseException:
+        inst.rollback()
+        raise
+    return inst
+
+
+TARGETS = {"kikolib": install_kikolib, "kiko": install_kiko, "tray": install_tray,
+           "tray-tk": install_tray_tk, "tray-py": install_tray_py}
 POST = {"kiko": post_kiko}
 
 
@@ -216,12 +346,12 @@ def main(argv=None) -> int:
     ap.add_argument("--rex-src", help="rex repo for the gateway files (kiko target; default ~/rex)")
     ap.add_argument("--kikolib", help="installed kikolib folder (kiko target; default <dest>/../kikolib)")
     ap.add_argument("--zip", help="win-kiko-tray.zip from CI (tray target; the artifact zip is accepted too)")
-    ap.add_argument("--kiko", help="installed kiko folder (tray target; default <dest>/../kiko)")
+    ap.add_argument("--kiko", help="installed kiko folder (tray targets; default <dest>/../kiko)")
     ap.add_argument("--autostart", action="store_true", help="tray target: also add a Startup shortcut")
     a = ap.parse_args(argv)
     if a.target == "tray" and not a.zip:
         ap.error("tray needs --zip FILE")
-    dest = Path(a.dest) if a.dest else portable.default_dest("kiko-tray" if a.target == "tray" else a.target)
+    dest = Path(a.dest) if a.dest else portable.default_dest(TRAY_VARIANTS.get(a.target, (a.target,))[0])
     dest = dest.resolve()
     if (dest / portable.RECORD).exists():
         # check first: a modified file must abort before anything is removed
@@ -245,6 +375,8 @@ def main(argv=None) -> int:
         inst = install_kiko(dest, Path(a.rex_src) if a.rex_src else None, Path(a.kikolib) if a.kikolib else None)
     elif a.target == "tray":
         inst = install_tray(dest, Path(a.zip), Path(a.kiko).resolve() if a.kiko else None, a.autostart)
+    elif a.target in ("tray-tk", "tray-py"):
+        inst = TARGETS[a.target](dest, Path(a.kiko).resolve() if a.kiko else None)
     else:
         inst = TARGETS[a.target](dest)
     try:

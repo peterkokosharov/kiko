@@ -96,6 +96,16 @@ def unlink_retry(p: Path, tries: int = 10, delay: float = 0.2) -> bool:
     return False
 
 
+def remove_tree(p: Path, tries: int = 5, delay: float = 0.5) -> bool:
+    """rmtree with retries (a briefly locked file); links inside are removed, never followed. False if it stays."""
+    for i in range(tries):
+        shutil.rmtree(p, ignore_errors=True)
+        if not p.exists():
+            return True
+        time.sleep(delay)
+    return False
+
+
 def needs_sha(e: dict) -> bool:
     return e.get("kind") == "file" and e.get("path") not in (RECORD, "uninstall.py")
 
@@ -129,6 +139,19 @@ def uninstall(app_dir: Path, purge: bool = False, out=print) -> int:
                     p.parent.rmdir()  # only if empty, never the Programs folder itself
             except OSError:
                 pass
+    for e in (e for e in created if e.get("kind") == "tree"):
+        # a folder the installer filled with files it did not list one by one (a private venv): removed whole
+        p = _inside(app_dir, e.get("path"))
+        if p is None:
+            bad.append(e.get("path"))
+            out(f"SKIPPED (unsafe tree path): {e.get('path')!r}")
+            continue
+        if p.is_dir():
+            if not remove_tree(p):
+                kept.append(str(e.get("path")))
+                out(f"KEPT (could not remove): {e.get('path')}")
+                continue
+            out(f"removed {e.get('path')}")
     for e in (e for e in created if e.get("kind") == "file"):
         p = _inside(app_dir, e.get("path"))
         if p is None:
