@@ -61,7 +61,7 @@ def make_icon(root: tk.Misc, color: str, size: int = 16) -> tk.PhotoImage:
 
 class App:
     def __init__(self, root: tk.Tk, base: str, key: str = "", chain: Any = None) -> None:
-        """chain: optional object with ``config`` (kiko_tray_core.Config) and the core functions; None = no Start/Stop."""
+        """chain: optional kiko_tray_core.ChainOwner; None = no Start/Stop."""
         self.root, self.base, self.key = root, base.rstrip("/"), key
         self.chain = chain
         self.q: queue.Queue[tuple[dict[str, Any] | None, str]] = queue.Queue()
@@ -163,13 +163,13 @@ class App:
             self.quit()
 
     def chain_action(self, action: str) -> None:
-        """Start/Stop of the installed chain (kiko_chain.py --detach / --stop) in a thread; the banner shows the result."""
+        """Start/Stop of the installed chain (kiko_chain.py run mode as our child / --stop of that child) in a thread; the banner shows the result."""
         if self.chain is None:
             return
         self.banner.set(f"{action} chain ...")
 
         def work() -> None:
-            ok, msg = self.chain.run_chain(self.chain.config, action)
+            ok, msg = self.chain.run(action)
             self.notes.put(f"{action}: {'ok' if ok else 'FAILED'} {msg}".strip())
             self.wake.set()
 
@@ -186,6 +186,8 @@ class App:
         webbrowser.open(self.base + "/ui")
 
     def quit(self) -> None:
+        if self.chain is not None:
+            self.chain.quit()  # ends the chain this tray started (never a foreign one)
         self.stop.set()
         self.wake.set()
         if self.has_tray:

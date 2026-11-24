@@ -4,7 +4,7 @@
 """pystray tray with the shared contract of the Windows trays (see kiko_tray_core.py).
 
 Icon colour = GET /health on the port (green ok, red down, grey unknown); menu: status, Start chain, Stop chain,
-Copy API token, Open web UI, Exit. Start/Stop run apps/kiko/kiko_chain.py (--detach / --stop). pystray and
+Copy API token, Open web UI, Exit. Start runs apps/kiko/kiko_chain.py as a child, Stop/Exit end only that child (core.ChainOwner). pystray and
 Pillow are imported inside the functions, so the logic can be imported without them.
 """
 import threading
@@ -44,6 +44,7 @@ class Tray:
         self.token = core.read_token(self.cfg)
         self.state = "unknown"
         self.note = ""
+        self.chain = core.ChainOwner(self.cfg)
         self.stop_evt = threading.Event()
         self.icon = None
 
@@ -52,8 +53,8 @@ class Tray:
         def work() -> None:
             self.note = f"{action}ing ..." if action == "stop" else "starting ..."
             self.refresh()
-            ok, msg = core.run_chain(self.cfg, action)
-            self.note = ("" if ok else f"{action} FAILED: {msg}")
+            ok, msg = self.chain.run(action)
+            self.note = ("" if ok else msg)
             self.poll_once()
         threading.Thread(target=work, daemon=True).start()
 
@@ -65,6 +66,7 @@ class Tray:
         webbrowser.open(self.cfg.base + "/ui")
 
     def exit(self) -> None:
+        self.chain.quit()  # ends the chain this tray started (never a foreign one)
         self.stop_evt.set()
         if self.icon is not None:
             self.icon.stop()

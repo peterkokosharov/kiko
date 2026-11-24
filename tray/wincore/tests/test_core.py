@@ -7,11 +7,28 @@ import socket
 import sys
 import tempfile
 import threading
+import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import kiko_tray_core as core  # noqa: E402
+
+FAKE_CHAIN = """import os, sys, time
+from pathlib import Path
+d = Path(__file__).parent / 'data'
+if '--stop' in sys.argv:
+    import signal
+    pid = int((d / 'chain.pid').read_text().split()[0])
+    (d / 'chain.pid').unlink()
+    os.kill(pid, signal.SIGTERM)
+    print('stopped')
+else:
+    d.mkdir(exist_ok=True)
+    (d / 'chain.pid').write_text(str(os.getpid()) + '\\n0\\n')
+    time.sleep(60)
+"""
 
 
 class Ini(unittest.TestCase):
@@ -48,25 +65,76 @@ class Ini(unittest.TestCase):
 class Chain(unittest.TestCase):
     def test_commands(self):
         c = core.Config(python="py", chain="k.py")
-        self.assertEqual(core.chain_command(c, "start"), ["py", "-I", "k.py", "--detach"])
+        self.assertEqual(core.chain_command(c, "start"), ["py", "-I", "k.py"])
         self.assertEqual(core.chain_command(c, "stop"), ["py", "-I", "k.py", "--stop"])
         with self.assertRaises(ValueError):
             core.chain_command(core.Config(), "start")
         with self.assertRaises(ValueError):
             core.chain_command(c, "restart")
 
-    def test_run_chain_not_configured(self):
-        ok, msg = core.run_chain(core.Config(), "start")
+    def test_not_configured(self):
+        ok, msg = core.ChainOwner(core.Config()).run("start")
         self.assertFalse(ok)
         self.assertIn("no chain", msg)
 
-    def test_run_chain_runs_script(self):
+    def fake_chain(self, td):
+        """A kiko_chain.py stand-in: run mode writes data/chain.pid and waits; --stop kills that pid."""
+        s = Path(td) / "kiko_chain.py"
+        s.write_text(FAKE_CHAIN, encoding="utf-8")
+        return core.Config(python=sys.executable, chain=str(s), port=1)
+
+    def wait_pidfile(self, cfg, pid):
+        for _ in range(100):
+            if core.pidfile_pid(cfg) == pid:
+                return True
+            time.sleep(0.1)
+        return False
+
+    def test_stop_own_child(self):
         with tempfile.TemporaryDirectory() as td:
-            s = Path(td) / "k.py"
-            s.write_text("import sys\nprint('hello', sys.argv[1])\n", encoding="utf-8")
-            ok, msg = core.run_chain(core.Config(python=sys.executable, chain=str(s)), "stop")
-            self.assertTrue(ok)
-            self.assertEqual(msg, "hello --stop")
+            cfg = self.fake_chain(td)
+            o = core.ChainOwner(cfg)
+            with mock.patch.object(core, "health", return_value=False):
+                self.assertEqual(o.run("start"), (True, "starting"))
+            self.assertTrue(self.wait_pidfile(cfg, o.proc.pid))
+            self.assertTrue(o.owns())
+            ok, msg = o.run("stop")
+            self.assertTrue(ok, msg)
+            self.assertFalse(o.owns())
+
+    def test_outside_chain_not_stopped(self):
+        o = core.ChainOwner(core.Config(python="py", chain="k.py"))
+        with mock.patch.object(core, "health", return_value=True),                 mock.patch.object(core.subprocess, "run") as run:
+            ok, msg = o.run("stop")
+        self.assertFalse(ok)
+        self.assertEqual(msg, "kiko was started outside the tray")
+        run.assert_not_called()
+
+    def test_start_refused_when_already_running(self):
+        o = core.ChainOwner(core.Config(python="py", chain="k.py"))
+        with mock.patch.object(core, "health", return_value=True),                 mock.patch.object(core.subprocess, "Popen") as popen:
+            self.assertFalse(o.run("start")[0])
+        popen.assert_not_called()
+
+    def test_pidfile_naming_other_pid_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfg = self.fake_chain(td)
+            o = core.ChainOwner(cfg)
+            with mock.patch.object(core, "health", return_value=False):
+                o.run("start")
+            self.assertTrue(self.wait_pidfile(cfg, o.proc.pid))
+            (Path(td) / "data" / "chain.pid").write_text("999999\n0\n")
+            ok, msg = o.run("stop")
+            self.assertFalse(ok)
+            self.assertIn("nothing killed", msg)
+            self.assertTrue(o.owns())
+            o.quit()  # own child is still ended on quit
+            self.assertFalse(o.owns())
+
+    def test_quit_without_child_is_noop(self):
+        with mock.patch.object(core.subprocess, "run") as run:
+            core.ChainOwner(core.Config()).quit()
+        run.assert_not_called()
 
 
 class Health(unittest.TestCase):

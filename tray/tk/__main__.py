@@ -9,7 +9,6 @@ import os
 import sys
 import tkinter as tk
 from pathlib import Path
-from types import SimpleNamespace
 
 from .app import App
 
@@ -49,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
         url = url or cfg.base
         key = key or core.read_token(cfg)
         if cfg.python and cfg.chain:
-            chain = SimpleNamespace(config=cfg, run_chain=core.run_chain)
+            chain = core.ChainOwner(cfg)
     url = url or f"http://127.0.0.1:{DEFAULT_PORT}"
     root = tk.Tk()
     app = App(root, url, key, chain)

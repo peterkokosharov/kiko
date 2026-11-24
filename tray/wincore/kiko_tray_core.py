@@ -4,7 +4,8 @@
 """Shared behaviour contract of the non-native Windows trays (tk and python); standard library only.
 
 - state: "ok" (GET /health on the port answers status ok), "down", "unknown" (nothing polled yet);
-- Start/Stop of the installed chain through kiko_chain.py (--detach / --stop) of apps/kiko;
+- Start runs apps/kiko/kiko_chain.py (run mode) as a child; Stop and quit end only that child (ChainOwner),
+  through kiko_chain.py --stop (pid + start-time check); a chain started outside is only watched;
 - the API token is read from apps/kiko/data/api-token and is never shown or logged.
 The installer writes <app>/kiko-tray.ini; env KIKO_PORT / KIKO_API_TOKEN override it.
 """
@@ -100,23 +101,80 @@ def state(port: int, timeout: float = 2.0) -> str:
 
 
 def chain_command(cfg: Config, action: str) -> list[str]:
-    """['python', '-I', 'kiko_chain.py', '--detach'|'--stop']; ValueError when the chain is not configured."""
+    """['python', '-I', 'kiko_chain.py'] (run mode, start) or [..., '--stop']; ValueError when not configured."""
     if action not in ("start", "stop"):
         raise ValueError(action)
     if not cfg.python or not cfg.chain:
         raise ValueError("no chain configured (kiko-tray.ini has no python/chain)")
-    return [cfg.python, "-I", cfg.chain, "--detach" if action == "start" else "--stop"]
+    cmd = [cfg.python, "-I", cfg.chain]
+    return cmd + ["--stop"] if action == "stop" else cmd
 
 
-def run_chain(cfg: Config, action: str, timeout: float = 90.0) -> tuple[bool, str]:
-    """Run kiko_chain.py --detach / --stop; (ok, last line of its output). Blocking: call from a worker thread."""
+def pidfile_pid(cfg: Config) -> int | None:
+    """The pid in <kiko>/data/chain.pid (first line), or None."""
     try:
-        cmd = chain_command(cfg, action)
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, creationflags=NO_WINDOW)
-    except (ValueError, OSError, subprocess.TimeoutExpired) as e:
-        return False, str(e)
-    text = (r.stdout + r.stderr).strip().splitlines()
-    return r.returncode == 0, text[-1] if text else ""
+        return int((Path(cfg.chain).parent / "data" / "chain.pid").read_text(encoding="utf-8").split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+class ChainOwner:
+    """Starts the chain in run mode as a child and stops ONLY that child (like the native tray's job).
+
+    Stop goes through ``kiko_chain.py --stop``, which verifies pid and process start time first; it is only
+    run when the pid file names the child we launched. A chain started elsewhere is never touched."""
+
+    def __init__(self, cfg: Config) -> None:
+        self.config = cfg
+        self.proc: subprocess.Popen | None = None
+
+    def owns(self) -> bool:
+        return self.proc is not None and self.proc.poll() is None
+
+    def run(self, action: str, timeout: float = 30.0) -> tuple[bool, str]:
+        """Blocking (use a worker thread). (ok, one-line message)."""
+        try:
+            cmd = chain_command(self.config, action)
+        except ValueError as e:
+            return False, str(e)
+        if action == "start":
+            if health(self.config.port):
+                return False, "kiko is already running"
+            try:
+                self.proc = subprocess.Popen(cmd, creationflags=NO_WINDOW | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+                                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as e:
+                return False, str(e)
+            return True, "starting"
+        if not self.owns():
+            return False, ("kiko was started outside the tray" if health(self.config.port) else "kiko is not running")
+        if pidfile_pid(self.config) != self.proc.pid:
+            return False, "the chain pid file does not name our child; nothing killed"
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, creationflags=NO_WINDOW)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return False, str(e)
+        try:
+            self.proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        lines = (r.stdout + r.stderr).strip().splitlines()
+        return r.returncode == 0, lines[-1] if lines else "stopped"
+
+    def quit(self) -> None:
+        """Tray exit: stop our own child (and its tree), never a foreign chain."""
+        if not self.owns():
+            return
+        self.run("stop")
+        if self.owns():  # pid file not written yet or refused: our own child only, tree included
+            kill_child_tree(self.proc)
+
+
+def kill_child_tree(proc: subprocess.Popen) -> None:
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, creationflags=NO_WINDOW)
+    else:
+        proc.kill()
 
 
 def copy_to_clipboard(text: str) -> bool:

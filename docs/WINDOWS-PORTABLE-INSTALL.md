@@ -126,8 +126,10 @@ Limits: the gateway needs the `claude` CLI on PATH and logged in. If a chain is 
 
 Three trays share one behaviour contract: a round icon whose colour follows `GET /health` on port 4000 (green =
 ok, red = not reachable, grey = not polled yet; the tk variant also shows amber when its panels list errors),
-menu entries Start chain / Stop chain (they run `apps\kiko\kiko_chain.py --detach` / `--stop`, whoever started
-the chain) and Copy API token (from `apps\kiko\data\api-token`; the token is never shown or logged). Port and
+menu entries Start chain / Stop chain (Start runs `apps\kiko\kiko_chain.py` in run mode as a child of the tray;
+Stop and quitting the tray end only that child, through `kiko_chain.py --stop`, which checks pid and start time;
+a chain started outside the tray is only watched: Stop says "kiko was started outside the tray" and kills nothing,
+as in the native tray) and Copy API token (from `apps\kiko\data\api-token`; the token is never shown or logged). Port and
 paths are in `kiko-tray.ini` next to the tray (env `KIKO_PORT` and `KIKO_API_TOKEN` win). All three need
 `apps\kiko` and install next to it. Run only one tray at a time: an installer prints a WARNING when another
 variant is installed, and installs anyway.

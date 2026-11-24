@@ -16,7 +16,8 @@
 
 Windows tray that needs no package: Python 3.14 with Tk 9 is enough. Icon colour follows `/health` on port 4000
 (green ok, red down, grey waiting; amber when the panels list errors). Menu: Open window, Open web UI,
-Start chain, Stop chain (`apps\kiko\kiko_chain.py --detach` / `--stop`), Copy API token, Quit. Without Tk 9 (8.6)
+Start chain (runs `apps\kiko\kiko_chain.py` as a child), Stop chain (only that child; a chain started outside
+the tray: "kiko was started outside the tray", nothing killed), Copy API token, Quit (also ends the child). Without Tk 9 (8.6)
 there is no tray, only the window. Install: `python -I tools/win/install.py tray-tk`
 (see `docs/WINDOWS-PORTABLE-INSTALL.md`, "Three tray variants and the swap test").
 
