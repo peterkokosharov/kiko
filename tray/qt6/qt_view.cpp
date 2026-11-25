@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: unknown (before 2026-11-24), claude-opus-4-8
+ * AI models: unknown (before 2026-11-24), claude-opus-4-8, claude-sonnet-5-5
  *
  * qt_view.cpp - Qt Widgets layer (Qt6, or Qt5 as fallback).  QSystemTrayIcon (StatusNotifierItem on
  * KDE Plasma), QMenu, QDialog with QTableWidget / read-only QPlainTextEdit.  No Q_OBJECT classes, so
@@ -163,7 +163,7 @@ QWidget *make_content(QDialog *dlg, const QString &kind, const kt_dialog *m)
         e->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         e->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
         e->setPlainText(s(m->text));
-        e->moveCursor(QTextCursor::End);   /* newest line (logs) */
+        e->moveCursor(QTextCursor::Start);   /* newest entry is first (logs): show the top */
         box->addWidget(e, 1);
     }
     if (m->footer[0]) {

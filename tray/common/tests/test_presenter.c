@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: unknown (before 2026-11-24)
+ * AI models: unknown (before 2026-11-24), claude-sonnet-5-5
  * Presenter tests with a fake view and a fake HTTP backend: no GUI, no sockets, any OS.
  */
 #include "fake_view.h"
@@ -298,10 +298,11 @@ static void test_dialogs(void)
     CHECK(strstr(d->summary, "cap $50.00") != NULL);
     CHECK(strstr(d->cells, "sonnet|12.2500|1000|500") != NULL);
     fake_set("/kiko/v1/logs?lines=200", 0, 200,
-             "{\"lines\":[\"started\",\"Authorization: Bearer abcdef.123456\"]}");
+             "{\"lines\":[\"2026-11-24 10:00:00,000 started\",\"2026-11-24 10:00:01,000 Authorization: Bearer abcdef.123456\"]}");
     open_and_wait(KT_ID_LOGS);
     d = last_dialog("logs");
     CHECK(strstr(d->text, "started\n") != NULL);
+    CHECK(strstr(d->text, "[REDACTED]") < strstr(d->text, "started"));   /* newest entry first */
     CHECK(strstr(d->text, "abcdef") == NULL);
     CHECK(strstr(d->text, "[REDACTED]") != NULL);
 

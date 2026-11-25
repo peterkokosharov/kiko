@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: nvidia-nemotron-3-ultra, claude-opus-4-8
+ * AI models: nvidia-nemotron-3-ultra, claude-opus-4-8, claude-sonnet-5-5
  *
  * gtk_view.c - GTK3 tray for Linux Mint (Cinnamon).  Tray icon: XAppStatusIcon (libxapp) when the
  * build found it, else GtkStatusIcon.  Menu and dialogs are plain GTK3 widgets.  State icons are
@@ -292,13 +292,11 @@ static GtkWidget *make_text(const kt_dialog *m)
 {
     GtkWidget *tv = gtk_text_view_new();
     GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(tv));
-    GtkTextIter end;
     gtk_text_view_set_editable(GTK_TEXT_VIEW(tv), FALSE);
     gtk_text_view_set_monospace(GTK_TEXT_VIEW(tv), TRUE);
     gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(tv), GTK_WRAP_WORD_CHAR);   /* wrap: no horizontal scroll bar */
     gtk_text_buffer_set_text(buf, m->text, -1);
-    gtk_text_buffer_get_end_iter(buf, &end);
-    gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(tv), &end, 0.0, FALSE, 0.0, 0.0);   /* newest line (logs) */
+    /* The text is newest-first (logs) and a new buffer starts at the top: nothing to scroll. */
     return tv;
 }
 

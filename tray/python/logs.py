@@ -1,5 +1,5 @@
 # Author: Peter Kokosharov <peter.kokosharov@gmail.com>
-# AI models: claude-sonnet-4-6
+# AI models: claude-sonnet-4-6, claude-sonnet-5-5
 """tray/logs.py — log tail and key redaction for kiko-tray."""
 import os
 import re
@@ -76,6 +76,28 @@ def server_log_path() -> Path:
 def tray_log_path() -> Path:
     """Absolute path to the kiko tray log file."""
     return get_log_folder() / 'kiko-tray.log'
+
+
+_ENTRY_START = re.compile(r'\d{4}-\d{2}-\d{2}[ T]|kiko-lite on ')
+
+
+def newest_first(lines: list[str]) -> list[str]:
+    """Reverse oldest-first log lines by ENTRY, so the newest entry comes first.
+
+    An entry starts at a line beginning with a date ("YYYY-MM-DD " or ISO "YYYY-MM-DDT") or the
+    server start banner; other lines (e.g. a traceback) continue the entry above
+    and keep their order.  Lines before the first entry start (a cut-off head)
+    form the oldest group and go last.
+    """
+    # With no recognised entry start at all, every line is its own entry (plain reversal).
+    any_start = any(_ENTRY_START.match(line) for line in lines)
+    groups: list[list[str]] = []
+    for line in lines:
+        if _ENTRY_START.match(line) or not groups or not any_start:
+            groups.append([line])
+        else:
+            groups[-1].append(line)
+    return [line for group in reversed(groups) for line in group]
 
 
 def get_server_log(n: int = 100) -> list[str]:

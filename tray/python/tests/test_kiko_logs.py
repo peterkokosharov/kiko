@@ -1,5 +1,5 @@
 # Author: Peter Kokosharov <peter.kokosharov@gmail.com>
-# AI models: claude-sonnet-4-6
+# AI models: claude-sonnet-4-6, claude-sonnet-5-5
 """Tests for tray/logs.py — tail, redaction, and combined log helpers."""
 import os
 import sys
@@ -15,6 +15,7 @@ from tray.logs import (
     copy_last_n,
     get_server_log,
     get_tray_log,
+    newest_first,
     redact,
     server_log_path,
     tail_file,
@@ -137,6 +138,37 @@ class TestCopyLastN(unittest.TestCase):
         self.assertIn('[REDACTED]', result)
         self.assertNotIn('server-secret', result)
         self.assertNotIn('tray-secret', result)
+
+
+class TestNewestFirst(unittest.TestCase):
+
+    def test_reverses_single_line_entries(self):
+        lines = ['2026-11-24 10:00:00,001 a INFO one', '2026-11-24 10:00:00,002 a INFO two']
+        self.assertEqual(newest_first(lines), [lines[1], lines[0]])
+
+    def test_keeps_traceback_with_its_entry(self):
+        lines = ['cut-off tail', '2026-11-24 10:00:01,000 a ERROR boom', 'Traceback:', '  File x', 'ValueError',
+                 '2026-11-24 10:00:02,000 a INFO after', 'kiko-lite on http://127.0.0.1:4000',
+                 '2026-11-24 10:00:03,000 a INFO newest']
+        self.assertEqual(newest_first(lines), [
+            lines[7], lines[6], lines[5], lines[1], lines[2], lines[3], lines[4], lines[0]])
+
+    def test_iso_t_format(self):
+        lines = ['2026-11-24T08:16:25.482056+00:00 haiku probe ok',
+                 '2026-11-24T08:16:26.100000+00:00 sonnet probe ok',
+                 '2026-11-24T08:16:27.200000+00:00 opus probe failed']
+        self.assertEqual(newest_first(lines), lines[::-1])
+
+    def test_mixed_formats(self):
+        lines = ['2026-11-24 10:00:00,001 a INFO one', '2026-11-24T10:00:01+00:00 b boom', 'Traceback:',
+                 '2026-11-24 10:00:02,000 a INFO three']
+        self.assertEqual(newest_first(lines), [lines[3], lines[1], lines[2], lines[0]])
+
+    def test_no_entry_start_falls_back_to_plain_reversal(self):
+        self.assertEqual(newest_first(['a', 'b', 'c']), ['c', 'b', 'a'])
+
+    def test_empty(self):
+        self.assertEqual(newest_first([]), [])
 
 
 if __name__ == '__main__':

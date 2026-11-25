@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: unknown (before 2026-11-24)
+ * AI models: unknown (before 2026-11-24), claude-sonnet-5-5
  */
 #include "kt_util.h"
 
@@ -8,6 +8,38 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+static int is_entry_start(const char *s)
+{
+    int i;
+    if (!s) return 0;
+    if (strncmp(s, "kiko-lite on ", 13) == 0) return 1;
+    for (i = 0; i < 10; i++) {
+        if (i == 4 || i == 7) { if (s[i] != '-') return 0; }
+        else if (s[i] < '0' || s[i] > '9') return 0;
+    }
+    return s[10] == ' ' || s[10] == 'T';   /* "YYYY-MM-DD " or ISO 8601 "YYYY-MM-DDT" */
+}
+
+char *kt_log_newest_first(const char *const *lines, size_t n)
+{
+    kt_sb sb;
+    size_t end = n, i;
+    int any = 0;
+    kt_sb_init(&sb);
+    for (i = 0; i < n; i++) if (is_entry_start(lines[i])) { any = 1; break; }
+    while (end > 0) {
+        size_t start = end - 1;
+        /* No recognised entry start anywhere (any == 0): every line is its own entry, i.e. plain reversal. */
+        while (any && start > 0 && !is_entry_start(lines[start])) start--;
+        for (i = start; i < end; i++) {
+            kt_sb_append(&sb, lines[i] ? lines[i] : "");
+            kt_sb_append(&sb, "\n");
+        }
+        end = start;
+    }
+    return kt_sb_take(&sb);
+}
 
 char *kt_strdup(const char *s)
 {

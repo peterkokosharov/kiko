@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: unknown (before 2026-11-24), claude-opus-4-8, claude-opus-5-5
+ * AI models: unknown (before 2026-11-24), claude-opus-4-8, claude-opus-5-5, claude-sonnet-5-5
  *
  * win_dialogs.c - native dialog windows built from a kt_dialog: STATIC labels, SysListView32 table or a
  * read-only multi-line EDIT, push buttons.  Segoe UI (the system message font), per-monitor DPI aware.
@@ -223,12 +223,10 @@ static void fill_table(dlg *d, const kt_dialog *m)
 
 static void fill_text(dlg *d, const kt_dialog *m)
 {
-    int len;
     wchar_t *w = kt_win_widen_crlf(m->text);
     SendMessageW(d->body, EM_SETLIMITTEXT, 0, 0);
     SetWindowTextW(d->body, w ? w : L"");
-    len = GetWindowTextLengthW(d->body);
-    SendMessageW(d->body, EM_SETSEL, (WPARAM)len, (LPARAM)len);   /* show the newest line (logs) */
+    SendMessageW(d->body, EM_SETSEL, 0, 0);   /* newest entry is first (logs): show the top */
     SendMessageW(d->body, EM_SCROLLCARET, 0, 0);
     free(w);
 }

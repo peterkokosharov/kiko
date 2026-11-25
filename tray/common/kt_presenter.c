@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: unknown (before 2026-11-24)
+ * AI models: unknown (before 2026-11-24), claude-sonnet-5-5
  */
 #include "kt_presenter.h"
 
@@ -493,26 +493,27 @@ static kt_dialog *build_logs(kt_presenter *p)
     api_rc rc = api_call(p, "GET", "/kiko/v1/logs?lines=200", NULL, &j, err, sizeof err);
     kt_dialog *d;
     const kt_json *arr;
-    kt_sb sb;
     char *text;
-    size_t i;
+    char **clean;
+    size_t i, n;
 
     if (rc != API_OK) return problem_dialog(p, "logs", "kiko - Logs", rc, err);
     d = new_dialog("logs", "kiko - Logs");
     if (!d) { kt_json_free(j); return NULL; }
-    kt_sb_init(&sb);
     arr = kt_json_get(j, "lines");
-    for (i = 0; i < kt_json_count(arr); i++) {
+    n = kt_json_count(arr);
+    clean = (char **)calloc(n ? n : 1, sizeof *clean);
+    for (i = 0; clean && i < n; i++) {
         /* The server redacts; redact again here as a last line of defence. */
-        char *clean = kt_mask_redact(kt_json_string(kt_json_at(arr, i), ""));
-        kt_sb_append(&sb, clean);
-        kt_sb_append(&sb, "\n");
-        free(clean);
+        clean[i] = kt_mask_redact(kt_json_string(kt_json_at(arr, i), ""));
     }
-    text = kt_sb_take(&sb);
+    /* Newest entry first (the server sends oldest-first); every view shows the text from the top. */
+    text = clean ? kt_log_newest_first((const char *const *)clean, n) : NULL;
+    for (i = 0; clean && i < n; i++) free(clean[i]);
+    free(clean);
     kt_dialog_set_text(d, text ? text : "");
     free(text);
-    kt_dialog_set_summary(d, "Last 200 log lines (secrets redacted).");
+    kt_dialog_set_summary(d, "Last 200 log lines, newest first (secrets redacted).");
     kt_json_free(j);
     return d;
 }

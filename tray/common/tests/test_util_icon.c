@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: unknown (before 2026-11-24)
+ * AI models: unknown (before 2026-11-24), claude-sonnet-5-5
  * String builder, dialog model and in-memory icon rendering.
  */
 #include <stdint.h>
@@ -86,8 +86,55 @@ static void test_icon(void)
     CHECK(px[(8 * 16 + 8) * 4 + 3] == 255);
 }
 
+static void test_log_order(void)
+{
+    char *t;
+    const char *simple[] = {"2026-11-24 10:00:00,001 a INFO one", "2026-11-24 10:00:00,002 a INFO two",
+                            "2026-11-24 10:00:00,003 a INFO three"};
+    /* a traceback and the start banner belong to the entry/restart they follow */
+    const char *multi[] = {"tail of a cut-off entry", "2026-11-24 10:00:01,000 a ERROR boom",
+                           "Traceback (most recent call last):", "  File \"x.py\", line 1", "ValueError: bad",
+                           "2026-11-24 10:00:02,000 a INFO after", "kiko-lite on http://127.0.0.1:4000",
+                           "2026-11-24 10:00:03,000 a INFO newest"};
+
+    t = kt_log_newest_first(simple, 3);
+    CHECK_STR(t, "2026-11-24 10:00:00,003 a INFO three\n2026-11-24 10:00:00,002 a INFO two\n"
+                 "2026-11-24 10:00:00,001 a INFO one\n");
+    free(t);
+    t = kt_log_newest_first(multi, 8);
+    CHECK_STR(t, "2026-11-24 10:00:03,000 a INFO newest\nkiko-lite on http://127.0.0.1:4000\n"
+                 "2026-11-24 10:00:02,000 a INFO after\n"
+                 "2026-11-24 10:00:01,000 a ERROR boom\nTraceback (most recent call last):\n"
+                 "  File \"x.py\", line 1\nValueError: bad\ntail of a cut-off entry\n");
+    free(t);
+    {
+        const char *iso[] = {"2026-11-24T08:16:25.482056+00:00 haiku probe ok",
+                             "2026-11-24T08:16:26.100000+00:00 sonnet probe ok",
+                             "2026-11-24T08:16:27.200000+00:00 opus probe failed"};
+        const char *mixed[] = {"2026-11-24 10:00:00,001 a INFO one", "2026-11-24T10:00:01+00:00 b boom", "Traceback:",
+                               "2026-11-24 10:00:02,000 a INFO three"};
+        const char *plain[] = {"a", "b", "c"};
+        t = kt_log_newest_first(iso, 3);
+        CHECK_STR(t, "2026-11-24T08:16:27.200000+00:00 opus probe failed\n"
+                     "2026-11-24T08:16:26.100000+00:00 sonnet probe ok\n"
+                     "2026-11-24T08:16:25.482056+00:00 haiku probe ok\n");
+        free(t);
+        t = kt_log_newest_first(mixed, 4);
+        CHECK_STR(t, "2026-11-24 10:00:02,000 a INFO three\n2026-11-24T10:00:01+00:00 b boom\nTraceback:\n"
+                     "2026-11-24 10:00:00,001 a INFO one\n");
+        free(t);
+        t = kt_log_newest_first(plain, 3);   /* nothing recognised: plain reversal */
+        CHECK_STR(t, "c\nb\na\n");
+        free(t);
+    }
+    t = kt_log_newest_first(simple, 0);
+    CHECK_STR(t, "");
+    free(t);
+}
+
 int main(void)
 {
+    test_log_order();
     test_sb();
     test_dialog();
     test_icon();
