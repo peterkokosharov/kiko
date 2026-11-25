@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
-# AI models: claude-sonnet-5-5
+# AI models: claude-sonnet-5-5, claude-opus-4-8
 """Shared behaviour contract of the non-native Windows trays (tk and python); standard library only.
 
 - state: "ok" (GET /health on the port answers status ok), "down", "unknown" (nothing polled yet);
@@ -175,6 +175,12 @@ def kill_child_tree(proc: subprocess.Popen) -> None:
         subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, creationflags=NO_WINDOW)
     else:
         proc.kill()
+    # Reap it so owns()/poll() reflect the kill: POSIX kill() only sends SIGKILL and returns at once, so
+    # without this wait the just-killed child can still look alive (taskkill already blocks on Windows).
+    try:
+        proc.wait(timeout=5)
+    except (subprocess.TimeoutExpired, OSError):
+        pass
 
 
 def copy_to_clipboard(text: str) -> bool:

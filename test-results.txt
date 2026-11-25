@@ -1,32 +1,176 @@
 kiko test results
-date (UTC): 2026-11-24 18:37:25
-git commit: ff9827e (+uncommitted changes)
-os: Linux 7.0.0-43-generic (x86_64), python 3.12.3
+date (UTC): 2026-11-25 09:23:22
+git commit: 4466fb5 (+uncommitted changes)
+os: Windows 11 (AMD64), python 3.14.7
 
 suite: ai-header-check
   command: python -I tools/check_ai_header.py
   passed: 1  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: windows tools (unittest)
   command: python -I -m unittest discover -s tools/win/tests
-  passed: 36  failed: 1  skipped: 10  stale: 0  -> FAIL
+  passed: 47  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: test runner (unittest)
   command: python -I -m unittest discover -s tools/tests
   passed: 4  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: pkgkit (unittest)
   command: python -I -m unittest discover -s packaging/tests
-  passed: 5  failed: 0  skipped: 1  stale: 0  -> PASS
+  passed: 6  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: tk tray model (unittest)
   command: python -I -m unittest discover -s tray/tk/tests -t tray
   passed: 7  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: windows tray core (unittest)
   command: python -I -m unittest discover -s tray/wincore/tests -t tray/wincore
-  passed: 13  failed: 1  skipped: 0  stale: 0  -> FAIL
-not run here: tray-python (pytest): pip install failed (no network?): /home/peterk/install/kiko/.venv/bin/python: No module named pip
+  passed: 14  failed: 0  skipped: 0  stale: 0  -> PASS
+suite: tray-python (pytest)
+  command: pytest tray/python/tests  (tray/python staged as package 'tray')
+  passed: 79  failed: 0  skipped: 0  stale: 0  -> PASS
+suite: gateway kiko_lite/kikolib/web/spy (pytest)
+  command: cd gateway && PYTHONPATH=<repo>:<repo>/gateway pytest tests/kiko --continue-on-collection-errors
+  passed: 1381  failed: 0  skipped: 24  stale: 142  -> PASS
+  note: the vendored LiteLLM test tree under gateway/tests (everything except tests/kiko) is not run
+  stale (needs litellm/fastapi or a removed web-ui/dist file; not counted as failure):
+    ::tests.kiko.test_kiko_auth_failclosed
+    ::tests.kiko.test_kiko_config_loader
+    ::tests.kiko.test_kiko_cred
+    ::tests.kiko.test_kiko_db
+    ::tests.kiko.test_kiko_master_key_credman
+    ::tests.kiko.test_kiko_monthly_cap
+    ::tests.kiko.test_kiko_nim_cost
+    ::tests.kiko.test_kiko_security
+    ::tests.kiko.test_kiko_sqlite_logger
+    tests.kiko.test_config_review_fixes::test_old_web_ui_says_what_is_wrong_when_the_port_is_busy
+    tests.kiko.test_kiko_429::test_rate_limit_returns_429
+    tests.kiko.test_kiko_contract_full_vs_lite::test_nonstream_text
+    tests.kiko.test_kiko_contract_full_vs_lite::test_usage_token_fields
+    tests.kiko.test_kiko_contract_full_vs_lite::test_nonstream_tool_use
+    tests.kiko.test_kiko_contract_full_vs_lite::test_tool_round_trip_request_reaches_upstream_alike
+    tests.kiko.test_kiko_contract_full_vs_lite::test_stream_text
+    tests.kiko.test_kiko_contract_full_vs_lite::test_stream_tool_use
+    tests.kiko.test_kiko_contract_full_vs_lite::test_upstream_error_status_and_type[429-hdr0]
+    tests.kiko.test_kiko_contract_full_vs_lite::test_upstream_error_status_and_type[500-None]
+    tests.kiko.test_kiko_contract_full_vs_lite::test_upstream_429_keeps_retry_after
+    tests.kiko.test_kiko_contract_full_vs_lite::test_bad_request_missing_model
+    tests.kiko.test_kiko_contract_full_vs_lite::test_bad_request_missing_messages
+    tests.kiko.test_kiko_contract_full_vs_lite::test_bad_request_not_json
+    tests.kiko.test_kiko_contract_full_vs_lite::test_bad_request_not_object[[]-json array]
+    tests.kiko.test_kiko_contract_full_vs_lite::test_bad_request_not_object["x"-json string]
+    tests.kiko.test_kiko_contract_full_vs_lite::test_bad_request_wrong_field_types[extra0]
+    tests.kiko.test_kiko_contract_full_vs_lite::test_bad_request_wrong_field_types[extra1]
+    tests.kiko.test_kiko_contract_full_vs_lite::test_bad_request_wrong_field_types[extra2]
+    tests.kiko.test_kiko_contract_full_vs_lite::test_responses_bad_request_and_upstream_502
+    tests.kiko.test_kiko_contract_full_vs_lite::test_internal_error_stays_500_generic_exception
+    tests.kiko.test_kiko_contract_full_vs_lite::test_internal_error_stays_500_api_connection_error
+    tests.kiko.test_kiko_contract_full_vs_lite::test_internal_error_stays_500_wrapped_internal_server_error
+    tests.kiko.test_kiko_contract_full_vs_lite::test_auth_failure_wrong_key
+    tests.kiko.test_kiko_contract_full_vs_lite::test_auth_failure_missing_key
+    tests.kiko.test_kiko_contract_full_vs_lite::test_unknown_model
+    tests.kiko.test_kiko_contract_full_vs_lite::test_stop_reason_max_tokens
+    tests.kiko.test_kiko_day_smoke::test_health_responds
+    tests.kiko.test_kiko_day_smoke::test_ram_stays_flat
+    tests.kiko.test_kiko_day_smoke::test_routing_logs_model_class
+    tests.kiko.test_kiko_day_smoke::test_kiko_models_endpoint
+    tests.kiko.test_kiko_day_smoke::test_shutdown_endpoint_exists
+    tests.kiko.test_kiko_full_tools::test_import_health_mcp_handler
+    tests.kiko.test_kiko_full_tools::test_acompletion_tools_nonstream[openai/gpt-x-oai]
+    tests.kiko.test_kiko_full_tools::test_acompletion_tools_nonstream[gemini/gemini-x-gem]
+    tests.kiko.test_kiko_full_tools::test_acompletion_tools_stream
+    tests.kiko.test_kiko_full_tools::test_router_acompletion_tools
+    tests.kiko.test_kiko_full_tools::test_sync_completion_tools
+    tests.kiko.test_kiko_full_tools::test_messages_tools_nonstream
+    tests.kiko.test_kiko_full_tools::test_messages_tools_stream
+    tests.kiko.test_kiko_full_tools::test_chat_completions_tools[False]
+    tests.kiko.test_kiko_full_tools::test_chat_completions_tools[True]
+    tests.kiko.test_kiko_full_tools::test_responses_route_with_tools
+    tests.kiko.test_kiko_full_tools::test_messages_tools_gemini[False]
+    tests.kiko.test_kiko_full_tools::test_messages_tools_gemini[True]
+    tests.kiko.test_kiko_full_tools::test_client_mcp_tool_never_connects[/v1/messages]
+    tests.kiko.test_kiko_full_tools::test_client_mcp_tool_never_connects[/v1/responses]
+    tests.kiko.test_kiko_full_tools::test_client_mcp_tool_never_connects[/v1/chat/completions]
+    tests.kiko.test_kiko_gemini_generate::test_generate_content_text
+    tests.kiko.test_kiko_gemini_generate::test_generate_content_function_call
+    tests.kiko.test_kiko_gemini_generate::test_generate_content_function_response
+    tests.kiko.test_kiko_gemini_generate::test_generate_content_usage_metadata
+    tests.kiko.test_kiko_gemini_generate::test_count_tokens_gemini
+    tests.kiko.test_kiko_gemini_generate::test_generate_content_without_v1beta
+    tests.kiko.test_kiko_gemini_stream::test_stream_generate_data_chunks
+    tests.kiko.test_kiko_gemini_stream::test_stream_generate_function_call_present
+    tests.kiko.test_kiko_gemini_stream::test_stream_generate_last_chunk_finish_reason
+    tests.kiko.test_kiko_gemini_stream::test_stream_generate_last_chunk_usage
+    tests.kiko.test_kiko_gemini_stream::test_stream_generate_no_done_marker
+    tests.kiko.test_kiko_gemini_stream::test_stream_generate_billing_row
+    tests.kiko.test_kiko_local_cost_map::test_get_model_cost_map_no_http_when_local
+    tests.kiko.test_kiko_messages_nonstream::test_messages_text_response
+    tests.kiko.test_kiko_messages_nonstream::test_messages_tool_use_response
+    tests.kiko.test_kiko_messages_nonstream::test_messages_system_as_block_list
+    tests.kiko.test_kiko_messages_nonstream::test_messages_second_turn_tool_result
+    tests.kiko.test_kiko_messages_nonstream::test_messages_billing_row
+    tests.kiko.test_kiko_messages_stream::test_messages_stream_event_order
+    tests.kiko.test_kiko_messages_stream::test_messages_stream_tool_json_valid
+    tests.kiko.test_kiko_messages_stream::test_messages_stream_billing_row
+    tests.kiko.test_kiko_mock_backend::test_chat_completions_non_stream
+    tests.kiko.test_kiko_mock_backend::test_chat_completions_stream
+    tests.kiko.test_kiko_mock_backend::test_chat_completions_tool_call
+    tests.kiko.test_kiko_mock_backend::test_billing_row_written
+    tests.kiko.test_kiko_model_class::test_load_models_migration_on_old_schema
+    tests.kiko.test_kiko_models_endpoints::test_get_models_returns_list
+    tests.kiko.test_kiko_models_endpoints::test_get_models_has_selected_field
+    tests.kiko.test_kiko_models_endpoints::test_get_models_auth_required
+    tests.kiko.test_kiko_models_endpoints::test_set_class_changes_model
+    tests.kiko.test_kiko_models_endpoints::test_set_class_unknown_model_404
+    tests.kiko.test_kiko_models_endpoints::test_set_class_invalid_class_400
+    tests.kiko.test_kiko_models_endpoints::test_set_class_auth_required
+    tests.kiko.test_kiko_portable_build::test_start_bat_no_pip
+    tests.kiko.test_kiko_portable_build::test_start_bat_no_userprofile
+    tests.kiko.test_kiko_portable_build::test_start_bat_checks_python_exe
+    tests.kiko.test_kiko_portable_build::test_kiko_start_py_inserts_lib
+    tests.kiko.test_kiko_portable_build::test_portable_config_no_absolute_paths
+    tests.kiko.test_kiko_previous_response_id::test_previous_response_id_carries_history
+    tests.kiko.test_kiko_previous_response_id::test_three_turn_chain_preserves_full_history
+    tests.kiko.test_kiko_previous_response_id::test_previous_response_id_unknown_returns_404
+    tests.kiko.test_kiko_previous_response_id::test_pri4_stream_then_chain
+    tests.kiko.test_kiko_responses_nonstream::test_responses_nonstream_basic
+    tests.kiko.test_kiko_responses_nonstream::test_responses_unknown_model
+    tests.kiko.test_kiko_responses_nonstream::test_responses_wrong_api_key
+    tests.kiko.test_kiko_responses_nonstream::test_responses_web_search_tool_stripped
+    tests.kiko.test_kiko_responses_nonstream::test_responses_billing_row_written
+    tests.kiko.test_kiko_responses_stream::test_responses_stream_content_type
+    tests.kiko.test_kiko_responses_stream::test_responses_stream_all_events_valid_json
+    tests.kiko.test_kiko_responses_stream::test_responses_stream_completed_event_last
+    tests.kiko.test_kiko_responses_stream::test_responses_stream_text_delta_non_empty
+    tests.kiko.test_kiko_responses_stream::test_responses_stream_billing_row
+    tests.kiko.test_kiko_shutdown::test_shutdown_returns_200
+    tests.kiko.test_kiko_shutdown::test_shutdown_auth_required
+    tests.kiko.test_kiko_shutdown::test_shutdown_triggers_sigint
+    tests.kiko.test_kiko_step7::test_count_tokens_returns_input_tokens
+    tests.kiko.test_kiko_step7::test_error_shape_404
+    tests.kiko.test_kiko_step7::test_error_shape_401
+    tests.kiko.test_kiko_step7::test_model_alias_claude_sonnet
+    tests.kiko.test_kiko_step7::test_model_alias_env_var
+    tests.kiko.test_orjson_compat::test_fallback_without_orjson
+    tests.kiko.test_orjson_compat::test_orjson_response_fallback
+    tests.kiko.test_web_ui_legacy_default::test_default_constant_matches_new_web
+    tests.kiko.test_web_ui_legacy_default::test_non_loopback_start_refused_while_default
+    tests.kiko.test_web_ui_legacy_default::test_loopback_start_ok_with_default
+    tests.kiko.test_web_ui_legacy_default::test_non_loopback_start_ok_with_real_password
+    tests.kiko.test_web_ui_legacy_default::test_default_password_login_refused
+    tests.kiko.test_web_ui_legacy_default::test_real_password_still_logs_in
+    tests.kiko.test_webui::test_binds_loopback_by_default
+    tests.kiko.test_webui::test_no_default_password_and_hash_stored
+    tests.kiko.test_webui::test_login_cookie_flags_and_session
+    tests.kiko.test_webui::test_login_throttle
+    tests.kiko.test_webui::test_session_expiry
+    tests.kiko.test_webui::test_change_password
+    tests.kiko.test_webui::test_foreign_origin_and_host_blocked_same_origin_ok
+    tests.kiko.test_webui::test_models_classes_aliases_settings_flow
+    tests.kiko.test_webui::test_logs_billing_and_bad_numbers
+    tests.kiko.test_webui::test_pages_static_and_traversal
+    tests.kiko.test_webui::test_password_hash_roundtrip
+    tests.kiko.test_webui_hardening::test_security_headers_on_every_response_kind
+    tests.kiko.test_webui_hardening::test_templates_and_js_are_csp_clean_and_escaped
+    tests.kiko.test_webui_hardening::test_escape_html_escapes_quotes
+    tests.kiko.test_webui_hardening::test_initial_password_file_not_stdout
+    tests.kiko.test_webui_hardening::test_initial_password_file_removed_after_change
+    tests.kiko.test_webui_hardening::test_pbkdf2_600k_new_and_old_hash_verifies
+not run here: tray C core (ctest): cmake/ctest not installed
 
-not run here: gateway kiko_lite/kikolib/web/spy (pytest): pip install failed (no network?): /home/peterk/install/kiko/.venv/bin/python: No module named pip
-
-suite: tray C core (ctest)
-  command: cmake -S tray -B <tmp> -DKT_BUILD_GUI=OFF && cmake --build && ctest
-  passed: 7  failed: 0  skipped: 0  stale: 0  -> PASS
-
-OVERALL: FAIL
+OVERALL: PASS

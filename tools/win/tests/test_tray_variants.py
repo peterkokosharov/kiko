@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Peter Kokosharov <peter.kokosharov@gmail.com>
-# AI models: claude-sonnet-5-5
+# AI models: claude-sonnet-5-5, claude-opus-4-8
 """Install targets tray-tk and tray-py (temp folders; the venv is mocked except in one network test).
 
 Run: python -I -m unittest discover -s tools/win/tests -t tools/win
@@ -216,8 +216,14 @@ class TrayPyReal(Base):
         vpy = d / "venv" / "Scripts" / "python.exe"
         if not vpy.exists():
             vpy = d / "venv" / "bin" / "python"
-        r = subprocess.run([str(vpy), "-c", "import pystray, PIL; print(pystray.__name__, PIL.__version__)"],
-                           capture_output=True, text=True)
+        # pystray selects its GUI backend at import; on headless Linux that is _xorg.py, which raises
+        # DisplayNameError with no DISPLAY (macOS=darwin, Windows=win32 need none). Smoke-import PIL always,
+        # and pystray only where a display can actually back it, so the venv is still proven on headless CI.
+        if sys.platform == "linux" and not os.environ.get("DISPLAY"):
+            code = "import PIL; print('PIL', PIL.__version__)"
+        else:
+            code = "import pystray, PIL; print(pystray.__name__, PIL.__version__)"
+        r = subprocess.run([str(vpy), "-c", code], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(pip_list(), system_before)  # the system Python got nothing
         rc, out = self.run_uninstall("kiko-tray-py")
