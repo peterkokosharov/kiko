@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: nvidia-nemotron-3-ultra
+ * AI models: nvidia-nemotron-3-ultra, claude-opus-4-8
  *
  * gtk_view.c - GTK3 tray for Linux Mint (Cinnamon).  Tray icon: XAppStatusIcon (libxapp) when the
  * build found it, else GtkStatusIcon.  Menu and dialogs are plain GTK3 widgets.  State icons are
@@ -295,6 +295,7 @@ static GtkWidget *make_text(const kt_dialog *m)
     GtkTextIter end;
     gtk_text_view_set_editable(GTK_TEXT_VIEW(tv), FALSE);
     gtk_text_view_set_monospace(GTK_TEXT_VIEW(tv), TRUE);
+    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(tv), GTK_WRAP_WORD_CHAR);   /* wrap: no horizontal scroll bar */
     gtk_text_buffer_set_text(buf, m->text, -1);
     gtk_text_buffer_get_end_iter(buf, &end);
     gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(tv), &end, 0.0, FALSE, 0.0, 0.0);   /* newest line (logs) */
@@ -309,6 +310,8 @@ static GtkWidget *make_content(gdlg *d, const kt_dialog *m)
     GtkWidget *close = gtk_button_new_with_label("Close");
     int i;
 
+    /* Scroll bars appear only when the content overflows (as-needed), never always. */
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_container_set_border_width(GTK_CONTAINER(box), 12);
     if (m->summary[0]) gtk_box_pack_start(GTK_BOX(box), make_label(m->summary), FALSE, FALSE, 0);
     gtk_container_add(GTK_CONTAINER(scroll), m->ncols > 0 ? make_table(m) : make_text(m));

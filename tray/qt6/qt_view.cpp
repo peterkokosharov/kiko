@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: unknown (before 2026-11-24)
+ * AI models: unknown (before 2026-11-24), claude-opus-4-8
  *
  * qt_view.cpp - Qt Widgets layer (Qt6, or Qt5 as fallback).  QSystemTrayIcon (StatusNotifierItem on
  * KDE Plasma), QMenu, QDialog with QTableWidget / read-only QPlainTextEdit.  No Q_OBJECT classes, so
@@ -157,7 +157,10 @@ QWidget *make_content(QDialog *dlg, const QString &kind, const kt_dialog *m)
     } else {
         QPlainTextEdit *e = new QPlainTextEdit(root);
         e->setReadOnly(true);
-        e->setLineWrapMode(QPlainTextEdit::NoWrap);
+        /* Wrap words (no horizontal bar); the vertical bar stays Qt's default "as needed". */
+        e->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+        e->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        e->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         e->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
         e->setPlainText(s(m->text));
         e->moveCursor(QTextCursor::End);   /* newest line (logs) */

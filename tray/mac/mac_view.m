@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: unknown (before 2026-11-24)
+ * AI models: unknown (before 2026-11-24), claude-opus-4-8
  *
  * mac_view.m - macOS menu-bar layer (Objective-C, ARC).  NSStatusItem with a coloured dot drawn in
  * code, NSMenu, NSWindow dialogs (NSTableView / read-only NSTextView), post_to_ui through GCD.
@@ -237,6 +237,8 @@ static NSView *content_for(KTDialog *d, const kt_dialog *m, NSSize size)
         sv.frame = NSMakeRect(margin, bottom, w, y - bottom);
         sv.borderType = NSBezelBorder;
         sv.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+        sv.autohidesScrollers = YES;        /* vertical scroller only when the text overflows */
+        sv.hasHorizontalScroller = NO;      /* the text view wraps to width: no horizontal scroller */
         NSTextView *tx = (NSTextView *)sv.documentView;
         tx.editable = NO;
         tx.font = [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: unknown (before 2026-11-24)
+ * AI models: unknown (before 2026-11-24), claude-opus-4-8
  *
  * win_dialogs.c - native dialog windows built from a kt_dialog: STATIC labels, SysListView32 table or a
  * read-only multi-line EDIT, push buttons.  Segoe UI (the system message font), per-monitor DPI aware.
@@ -29,6 +29,7 @@ typedef struct dlg {
     char      **btn_ids;
     int         nbuttons;
     int         has_footer;
+    int         body_is_text;   /* body is the read-only EDIT (not the list) */
     struct dlg *next;
 } dlg;
 
@@ -92,6 +93,33 @@ static void apply_font(dlg *d)
         if (d->buttons[i]) SendMessageW(d->buttons[i], WM_SETFONT, (WPARAM)d->font, TRUE);
 }
 
+/* Show the EDIT's vertical scroll bar only when the text is taller than the box (as-needed).  The EDIT has
+ * no horizontal scroll bar and wraps words, so a horizontal bar never appears.  Called after each (re)layout
+ * and text change; harmless for the list body, which manages its own bars. */
+static void update_vscroll(dlg *d)
+{
+    HDC dc;
+    HFONT old;
+    TEXTMETRICW tm;
+    RECT er;
+    int line_h, visible, total;
+
+    if (!d->body || !d->body_is_text) return;
+    dc = GetDC(d->body);
+    if (!dc) return;
+    old = (HFONT)SelectObject(dc, d->font);
+    GetTextMetricsW(dc, &tm);
+    if (old) SelectObject(dc, old);
+    ReleaseDC(d->body, dc);
+    line_h = tm.tmHeight + tm.tmExternalLeading;
+    if (line_h < 1) line_h = 1;
+    memset(&er, 0, sizeof er);
+    SendMessageW(d->body, EM_GETRECT, 0, (LPARAM)&er);
+    visible = (er.bottom - er.top) / line_h;
+    total = (int)SendMessageW(d->body, EM_GETLINECOUNT, 0, 0);
+    ShowScrollBar(d->body, SB_VERT, total > visible);
+}
+
 /* ---------------------------------------------------------------- layout */
 
 static void layout(dlg *d)
@@ -128,6 +156,7 @@ static void layout(dlg *d)
         x += btn_w + px(d, 40) + gap;
     }
     MoveWindow(d->close, m + w - btn_w, y, btn_w, btn_h, TRUE);
+    update_vscroll(d);
 }
 
 /* ---------------------------------------------------------------- controls from the model */
@@ -210,6 +239,7 @@ static void build_controls(dlg *d, const kt_dialog *m)
     int i;
 
     destroy_controls(d);
+    d->body_is_text = 0;
     w = kt_win_widen(m->summary);
     d->summary = make_child(d, L"STATIC", w, SS_LEFT | SS_NOPREFIX, 0, 100);
     free(w);
@@ -220,10 +250,12 @@ static void build_controls(dlg *d, const kt_dialog *m)
                              WS_EX_CLIENTEDGE, 101);
         if (d->body) fill_table(d, m);
     } else {
+        /* No WS_HSCROLL / ES_AUTOHSCROLL: the EDIT wraps words, so no horizontal bar is ever needed.  WS_VSCROLL
+         * keeps the scroll machinery; update_vscroll() hides the vertical bar whenever the text fits. */
         d->body = make_child(d, L"EDIT", NULL,
-                             WS_TABSTOP | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL
-                                 | ES_AUTOHSCROLL,
+                             WS_TABSTOP | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
                              WS_EX_CLIENTEDGE, 101);
+        d->body_is_text = 1;
         if (d->body) fill_text(d, m);
     }
 
