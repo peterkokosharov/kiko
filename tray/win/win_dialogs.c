@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Author: Peter Kokosharov <peter.kokosharov@gmail.com>
- * AI models: unknown (before 2026-11-24), claude-opus-4-8
+ * AI models: unknown (before 2026-11-24), claude-opus-4-8, claude-opus-5-5
  *
  * win_dialogs.c - native dialog windows built from a kt_dialog: STATIC labels, SysListView32 table or a
  * read-only multi-line EDIT, push buttons.  Segoe UI (the system message font), per-monitor DPI aware.
@@ -369,6 +369,11 @@ int wd_init(HINSTANCE hinst)
     wc.lpfnWndProc = dlg_proc;
     wc.hInstance = hinst;
     wc.hCursor = LoadCursorW(NULL, (LPCWSTR)IDC_ARROW);
+    /* Caption/taskbar icon: the K icon embedded by kiko-tray.rc as ICON 1 (else Windows shows a generic one). */
+    wc.hIcon = (HICON)LoadImageW(hinst, MAKEINTRESOURCEW(1), IMAGE_ICON,
+                                 GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR);
+    wc.hIconSm = (HICON)LoadImageW(hinst, MAKEINTRESOURCEW(1), IMAGE_ICON,
+                                   GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
     wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     wc.lpszClassName = DLG_CLASS;
     if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return -1;
