@@ -54,6 +54,7 @@ def kiko_env() -> dict:
         PYTHONPATH=os.pathsep.join([str(HERE / "kiko-lite"), str(kikolib_dir())]),
         KIKO_CONFIG_DIR=str(DATA), KIKO_DB_PATH=str(DATA / "kiko.db"),
         PYTHONDONTWRITEBYTECODE="1",  # no __pycache__ inside the recorded app folders
+        PYTHONDONTWRITEBYTECODE="1",  # no __pycache__ inside the recorded app folders
         CGW_TOKEN=secret("gwtoken"), MASTER_KEY=secret("masterkey"),
     )
     return env
