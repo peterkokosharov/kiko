@@ -572,6 +572,17 @@ def cmd_export_models(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_import_models(args: argparse.Namespace) -> int:
+    """Upsert models from a catalog XML file (the format of export-models), all or nothing."""
+    if not args.xml:
+        return _err("name the format: import-models --xml FILE")
+    try:
+        data = Path(args.xml).read_bytes()
+    except OSError as e:
+        return _err(f"cannot read {args.xml}: {e}")
+    return catalog_xml.run_import(default_path(args.db), data, dry_run=args.dry_run, pinger=catalog_xml.ping_model)
+
+
 def cmd_set_thinking(args: argparse.Namespace) -> int:
     db = _open(args)
     if db is None:
@@ -902,6 +913,10 @@ def build_parser() -> argparse.ArgumentParser:
     s = add("export-models", cmd_export_models, "write the model catalog as XML (key names only, no key values)")
     s.add_argument("--xml", action="store_true", help="XML format (docs/schema/kiko-models.xsd)")
     s.add_argument("--out", metavar="FILE", help="write to FILE instead of stdout")
+    s = add("import-models", cmd_import_models,
+            "upsert models from a catalog XML file (all or nothing; new models start disabled)")
+    s.add_argument("--xml", metavar="FILE", required=True, help="catalog file written by export-models --xml")
+    s.add_argument("--dry-run", action="store_true", help="show what would be added / changed, write nothing")
     add("list-classes", cmd_list_classes, "list model classes (name, keyword, role, enabled models)")
     s = add("add-class", cmd_add_class, "add a model class (detected by KEYWORD in the requested model name)")
     s.add_argument("name", help="upper-case, e.g. VOICE")

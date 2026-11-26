@@ -185,3 +185,32 @@ catalog are byte-identical. Only key NAMES appear; a stored text that looks like
 (`FREE_TIER_PROVIDERS` in `kiko_lite/catalog_xml.py`: `nvidia`); `<in>` / `<out>` (and `<cache_read>` when known)
 when priced; empty when the price is unknown. The `enabled` and `status` attributes are the row's own.
 
+## XML import: `inject.py` / `import-models` (2026-11-26)
+
+The reverse of the export: `kiko-lite import-models --xml FILE [--dry-run]`, or the same through
+`python tools/inject.py FILE [--dry-run] [--db PATH]`. It reads the format above (`docs/schema/kiko-models.xsd`)
+and upserts models by alias (`<model id="...">`):
+
+* **Validated first, all errors at once.** The whole file is checked (well-formed, version "1", no DOCTYPE, every
+  required element, key a NAME in UPPER_SNAKE_CASE, roles that exist as classes, whole-number tokens, numeric
+  prices, a model id kiko can route). Every problem is listed; with any problem nothing is written. A file that
+  contains anything shaped like an API key value (`sk-...`, `nvapi-...`, `AIza...`, `AKIA...`, ...) in any text or
+  attribute is refused as a whole, and the value is never echoed back.
+* **All or nothing.** The write is one SQLite transaction; if the database refuses one model (for example an alias
+  that differs only in case from an existing one) none of them is written.
+* **`--dry-run`** prints `+ added`, `~ changed (fields)` and `= unchanged` per model and writes nothing (it does not
+  even create a missing database).
+* **Backup.** A real write into an existing database is preceded by `kiko.db.bak-YYYYMMDD-HHMMSS-import` (SQLite
+  backup API); nothing to change means no write and no backup.
+* **What is taken from the file:** name (provider/model id), key NAME, api_base, roles (the `primary="true"` one, else
+  the first, is the primary), context, max output, price (`free` = 0 / 0; empty = unknown, kept as is), priority,
+  thinking, timeout, toolshim, and the human name (`<alias>` text when it differs from the id). Empty context /
+  price in the file keep the database value. The `enabled` flag and the health `status` of an EXISTING model are never
+  changed by an import.
+* **New models are added disabled** unless the file says `enabled="true"` AND the model answers a ping through the
+  running kiko (a tiny `/v1/messages` call to `127.0.0.1:<port>`): it is enabled for the ping, then stays enabled with
+  status ok, or is switched off again with status error. With kiko not running the ping fails and the model stays
+  disabled.
+* Round trip: export, import into an empty database (every pinged model answers), export again gives byte-identical
+  XML (covered by a test). Health `status` is operational state and is not carried by the file.
+

@@ -585,7 +585,20 @@ class Database:
             self._store_roles(con, int(row["id"]), wanted)
             return True
 
-    def upsert_model(self, alias: str, provider: str, api_key_env: str, api_base: str | None = None,
+    def upsert_model(self, *args: Any, **kwargs: Any) -> bool:
+        """Insert or update one model by alias, in its own transaction (arguments: ``_upsert_in`` minus ``con``)."""
+        with self._write() as con:
+            return self._upsert_in(con, *args, **kwargs)
+
+    def upsert_models(self, items: list[dict[str, Any]]) -> list[bool]:
+        """Upsert several models in ONE transaction: all or none (a ValueError rolls everything back). Each item holds
+        the keyword arguments of ``_upsert_in`` (``alias``, ``provider``, ``api_key_env``, ...). One bool per item:
+        True if new."""
+        with self._write() as con:
+            return [self._upsert_in(con, **item) for item in items]
+
+
+    def _upsert_in(self, con: sqlite3.Connection, alias: str, provider: str, api_key_env: str, api_base: str | None = None,
                      model_class: str = "SONNET", priority: int = 100, price_in: float | None = None,
                      price_out: float | None = None, price_cache: float | None = None,
                      enabled: bool | None = None, status: str | None = None,
@@ -611,48 +624,47 @@ class Database:
             raise ValueError(f"thinking must be one of {', '.join(THINKING_MODES)}")
         if toolshim is not None and toolshim not in TOOLSHIM_MODES:
             raise ValueError(f"toolshim must be one of {', '.join(TOOLSHIM_MODES)}")
-        with self._write() as con:
-            known = [c["name"] for c in self._classes_in(con)]
-            if cls not in known:
-                raise ValueError(f"model class must be one of {', '.join(known)}")
-            wanted = None if roles is None else self._check_roles(known, roles)
-            self._check_alias(con, alias)
-            old = con.execute("SELECT id, model_class FROM models WHERE alias=?", (alias,)).fetchone()
-            existed = old is not None
-            old_roles = [r[0] for r in con.execute("SELECT class_name FROM model_roles WHERE model_id=?",
-                                                   (old["id"],))] if existed else []
-            con.execute(
-                "INSERT INTO models(alias, provider, api_base, api_key_env, model_class, priority, enabled, status,"
-                " price_in_per_mtok, price_out_per_mtok, price_cache_read_per_mtok, thinking, timeout, toolshim, context_window, max_output, display_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-                " ON CONFLICT(alias) DO UPDATE SET provider=excluded.provider, api_base=excluded.api_base,"
-                " api_key_env=excluded.api_key_env, model_class=excluded.model_class, priority=excluded.priority,"
-                " enabled=COALESCE(?, models.enabled), status=COALESCE(?, models.status),"
-                " price_in_per_mtok=COALESCE(excluded.price_in_per_mtok, models.price_in_per_mtok),"
-                " price_out_per_mtok=COALESCE(excluded.price_out_per_mtok, models.price_out_per_mtok),"
-                " price_cache_read_per_mtok=COALESCE(excluded.price_cache_read_per_mtok,"
-                " models.price_cache_read_per_mtok),"
-                " thinking=CASE WHEN ? THEN models.thinking ELSE excluded.thinking END,"
-                " timeout=CASE WHEN ? THEN models.timeout ELSE excluded.timeout END,"
-                " toolshim=CASE WHEN ? THEN models.toolshim ELSE excluded.toolshim END,"
-                " context_window=COALESCE(excluded.context_window, models.context_window),"
-                " max_output=COALESCE(excluded.max_output, models.max_output),"
-                " display_name=CASE WHEN ? THEN models.display_name ELSE excluded.display_name END",
-                (alias, provider, api_base, api_key_env, cls, int(priority),
-                 1 if enabled is None else int(enabled), status or "unknown", price_in, price_out, price_cache,
-                 None if thinking in (None, "default") else thinking, None if timeout is None else tmo,
-                 "on" if toolshim == "on" else None, context_window, max_output,
-                 None if display_name is None else (display_name.strip() or None),
-                 None if enabled is None else int(enabled), status, int(thinking is None), int(timeout is None),
-                 int(toolshim is None), int(display_name is None)),
-            )
-            mid = int(con.execute("SELECT id FROM models WHERE alias=?", (alias,)).fetchone()[0])
-            if wanted is not None:
-                final = wanted
-            elif existed:  # a changed primary class replaces the old primary role; the other roles stay
-                final = [r for r in old_roles if r != old["model_class"]] if old["model_class"] != cls else old_roles
-            else:
-                final = []
-            self._store_roles(con, mid, [cls] + [r for r in final if r != cls])
+        known = [c["name"] for c in self._classes_in(con)]
+        if cls not in known:
+            raise ValueError(f"model class must be one of {', '.join(known)}")
+        wanted = None if roles is None else self._check_roles(known, roles)
+        self._check_alias(con, alias)
+        old = con.execute("SELECT id, model_class FROM models WHERE alias=?", (alias,)).fetchone()
+        existed = old is not None
+        old_roles = [r[0] for r in con.execute("SELECT class_name FROM model_roles WHERE model_id=?",
+                                               (old["id"],))] if existed else []
+        con.execute(
+            "INSERT INTO models(alias, provider, api_base, api_key_env, model_class, priority, enabled, status,"
+            " price_in_per_mtok, price_out_per_mtok, price_cache_read_per_mtok, thinking, timeout, toolshim, context_window, max_output, display_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            " ON CONFLICT(alias) DO UPDATE SET provider=excluded.provider, api_base=excluded.api_base,"
+            " api_key_env=excluded.api_key_env, model_class=excluded.model_class, priority=excluded.priority,"
+            " enabled=COALESCE(?, models.enabled), status=COALESCE(?, models.status),"
+            " price_in_per_mtok=COALESCE(excluded.price_in_per_mtok, models.price_in_per_mtok),"
+            " price_out_per_mtok=COALESCE(excluded.price_out_per_mtok, models.price_out_per_mtok),"
+            " price_cache_read_per_mtok=COALESCE(excluded.price_cache_read_per_mtok,"
+            " models.price_cache_read_per_mtok),"
+            " thinking=CASE WHEN ? THEN models.thinking ELSE excluded.thinking END,"
+            " timeout=CASE WHEN ? THEN models.timeout ELSE excluded.timeout END,"
+            " toolshim=CASE WHEN ? THEN models.toolshim ELSE excluded.toolshim END,"
+            " context_window=COALESCE(excluded.context_window, models.context_window),"
+            " max_output=COALESCE(excluded.max_output, models.max_output),"
+            " display_name=CASE WHEN ? THEN models.display_name ELSE excluded.display_name END",
+            (alias, provider, api_base, api_key_env, cls, int(priority),
+             1 if enabled is None else int(enabled), status or "unknown", price_in, price_out, price_cache,
+             None if thinking in (None, "default") else thinking, None if timeout is None else tmo,
+             "on" if toolshim == "on" else None, context_window, max_output,
+             None if display_name is None else (display_name.strip() or None),
+             None if enabled is None else int(enabled), status, int(thinking is None), int(timeout is None),
+             int(toolshim is None), int(display_name is None)),
+        )
+        mid = int(con.execute("SELECT id FROM models WHERE alias=?", (alias,)).fetchone()[0])
+        if wanted is not None:
+            final = wanted
+        elif existed:  # a changed primary class replaces the old primary role; the other roles stay
+            final = [r for r in old_roles if r != old["model_class"]] if old["model_class"] != cls else old_roles
+        else:
+            final = []
+        self._store_roles(con, mid, [cls] + [r for r in final if r != cls])
         return not existed
 
     @staticmethod

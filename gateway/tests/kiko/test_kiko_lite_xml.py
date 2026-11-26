@@ -114,6 +114,8 @@ def test_no_key_value_ever(tmp_path):
 
 
 def test_xsd_is_well_formed_and_names_every_exported_element(d):
+    if not (ROOT / "docs" / "schema" / "kiko-models.xsd").is_file():
+        pytest.skip("docs/schema is repo-level, not shipped in the kiko-lite zip")
     xsd = ET.parse(ROOT / "docs" / "schema" / "kiko-models.xsd").getroot()
     declared = {e.get("name") for e in xsd.iter("{http://www.w3.org/2001/XMLSchema}element")}
     exported = {el.tag for m in parse(d).findall("model") for el in m.iter()} | {"kiko-models"}

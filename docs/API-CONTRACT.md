@@ -46,6 +46,7 @@ The same catalog as XML for tools and humans (one `<model>` per row: human name,
 role, `<context>`, `<max_output>`, `<price per="1M">`). Loopback and token rules as every route here; `200`
 `Content-Type: application/xml; charset=utf-8`. Schema `docs/schema/kiko-models.xsd`, description in `docs/MODELS.md`.
 Also written by `kiko-lite export-models --xml [--out FILE]`. No key value is ever in it.
+The reverse is the CLI `kiko-lite import-models --xml FILE` / `tools/inject.py` (docs/MODELS.md); it is not an HTTP route.
 
 ### GET /kiko/v1/classes
 ```json
