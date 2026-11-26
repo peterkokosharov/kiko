@@ -377,13 +377,13 @@ HTTP сървър е само за kiko-wrt (R42); TLS никога не го п
 
 All read locally on 2026-11-25.
 
-- `%USERPROFILE%\kiko-src\embedded\docs\PLAN.md` (libkiko section, module decisions, size targets, steps)
-- `%USERPROFILE%\kiko-src\embedded\docs\SPEC.md` (sections 6 Limits, 8 Security, 9 Non-goals)
-- `%USERPROFILE%\kiko-src\gateway\kiko_runtime_lib\README.md`, `gateway.py`
-- `%USERPROFILE%\kiko-src\gateway\kikolib\README.md`; function lists of `http.py`, `sse.py`,
+- `embedded/docs/PLAN.md` (libkiko section, module decisions, size targets, steps)
+- `embedded/docs/SPEC.md` (sections 6 Limits, 8 Security, 9 Non-goals)
+- `gateway/kiko_runtime_lib/README.md`, `gateway.py`
+- `gateway/kikolib/README.md`; function lists of `http.py`, `sse.py`,
   `retry.py`, `tokens.py`, `keystore.py`, `logs.py`, `winhttp.py`, `factory.py`; limits in `server.py`
-- `%USERPROFILE%\kiko-src\gateway\kiko_lite\app.py` (docstring, routes, failover, cooldowns)
-- `%USERPROFILE%\kiko-src\gateway\kiko_lite\providers\__init__.py`, `openai_compat.py`, `gemini.py`
-- `%USERPROFILE%\kiko-src\gateway\kiko_lite\chat_front.py`, `gemini_front.py`, `responses_front.py`,
+- `gateway/kiko_lite/app.py` (docstring, routes, failover, cooldowns)
+- `gateway/kiko_lite/providers/__init__.py`, `openai_compat.py`, `gemini.py`
+- `gateway/kiko_lite/chat_front.py`, `gemini_front.py`, `responses_front.py`,
   `toolshim.py`, `resolver.py` (docstrings and function lists)
-- `%USERPROFILE%\kiko-src\gateway\tests\kiko\` (file list only)
+- `gateway/tests/kiko/` (file list only)
