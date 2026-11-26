@@ -174,14 +174,15 @@ catalog are byte-identical. Only key NAMES appear; a stored text that looks like
     </roles>
     <context>1000000</context>             <!-- tokens; always present, empty when unknown -->
     <max_output>128000</max_output>
-    <price per="1M">free</price>           <!-- or <in>/<out>[/<cache_read>] in USD, or empty = unknown -->
+    <price per="1M"><in>4</in><out>20</out></price>  <!-- or the text free (free-tier provider, no price), or empty = unknown -->
     <priority>100</priority>
     <!-- <thinking>, <timeout>, <toolshim> only when set -->
   </model>
 </kiko-models>
 ```
 
-`<price>` reads `free` when the stored price is 0 / 0 or the provider is a free-tier provider with no stored price
+`<price>` reads `free` only when the provider is a free-tier provider with no stored price (a stored 0 / 0 is a
+real price and is written as `<in>0</in><out>0</out>`)
 (`FREE_TIER_PROVIDERS` in `kiko_lite/catalog_xml.py`: `nvidia`); `<in>` / `<out>` (and `<cache_read>` when known)
 when priced; empty when the price is unknown. The `enabled` and `status` attributes are the row's own.
 
@@ -203,7 +204,7 @@ and upserts models by alias (`<model id="...">`):
 * **Backup.** A real write into an existing database is preceded by `kiko.db.bak-YYYYMMDD-HHMMSS-import` (SQLite
   backup API); nothing to change means no write and no backup.
 * **What is taken from the file:** name (provider/model id), key NAME, api_base, roles (the `primary="true"` one, else
-  the first, is the primary), context, max output, price (`free` = 0 / 0; empty = unknown, kept as is), priority,
+  the first, is the primary), context, max output, price (`free` = a free-tier provider with no price; empty = unknown, kept as is), priority,
   thinking, timeout, toolshim, and the human name (`<alias>` text when it differs from the id). Empty context /
   price in the file keep the database value. The `enabled` flag and the health `status` of an EXISTING model are never
   changed by an import.

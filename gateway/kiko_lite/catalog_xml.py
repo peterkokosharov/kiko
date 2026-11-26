@@ -12,7 +12,8 @@ One ``<model id="ALIAS" enabled="true|false" status="ok|error|unknown">`` per ro
 * ``<roles>``       one ``<role>`` per role, the primary first and marked ``primary="true"``
 * ``<context>``, ``<max_output>``  integer tokens; the element is always there, empty when unknown
 * ``<price per="1M">``  ``<in>`` / ``<out>`` (and ``<cache_read>`` when known) in USD, or the text ``free`` when the
-  model is served free (stored price 0 / 0, or a free-tier provider, see ``FREE_TIER_PROVIDERS``); empty = unknown
+  model is a free-tier provider's with no stored price (see ``FREE_TIER_PROVIDERS``; a stored 0 / 0 is written
+  as <in>0</in><out>0</out>); empty = unknown
 * ``<priority>`` always; ``<thinking>``, ``<timeout>``, ``<toolshim>`` only when set
 
 The schema is ``docs/schema/kiko-models.xsd`` (documented in docs/MODELS.md). Standard library only.
@@ -57,12 +58,20 @@ def num(x: float | int) -> str:
     return text[:-2] if text.endswith(".0") else text
 
 
+def _free_tier(provider: object) -> bool:
+    return str(provider or "").partition("/")[0].strip().lower() in FREE_TIER_PROVIDERS
+
+
 def is_free(row: Mapping[str, Any]) -> bool:
-    p_in, p_out = row.get("price_in_per_mtok"), row.get("price_out_per_mtok")
-    if p_in is not None and p_out is not None:
-        return p_in == 0 and p_out == 0
-    prefix = str(row.get("provider") or "").partition("/")[0].strip().lower()
-    return p_in is None and p_out is None and prefix in FREE_TIER_PROVIDERS
+    """"free" in the export: a free-tier provider whose price columns are NULL. A stored 0 / 0 is a real price
+    (it exports as <in>0</in><out>0</out>), so a flat-rate model is never mistaken for a free one."""
+    return (row.get("price_in_per_mtok") is None and row.get("price_out_per_mtok") is None
+            and _free_tier(row.get("provider")))
+
+
+def _free_row(row: Mapping[str, Any]) -> bool:
+    """A stored row that already satisfies "free" on import: no price at a free-tier provider, or 0 / 0."""
+    return is_free(row) or (row.get("price_in_per_mtok") == 0 and row.get("price_out_per_mtok") == 0)
 
 
 def _text(parent: ET.Element, tag: str, text: str | None = None) -> ET.Element:
@@ -363,8 +372,11 @@ class Change:
     diffs: list[str] = field(default_factory=list)
 
 
-def _wanted_prices(e: Entry) -> tuple[float | None, float | None, float | None]:
-    if e.free:
+def _wanted_prices(e: Entry, row: Mapping[str, Any] | None = None) -> tuple[float | None, float | None, float | None]:
+    if e.free:  # a free-tier provider keeps "no price"; anywhere else free is stored as 0 / 0
+        if _free_tier(e.provider) and (row is None or (row.get("price_in_per_mtok") is None
+                                                       and row.get("price_out_per_mtok") is None)):
+            return None, None, None
         return 0.0, 0.0, None
     return e.price_in, e.price_out, e.price_cache
 
@@ -379,7 +391,7 @@ def plan_changes(existing: Mapping[str, Mapping[str, Any]], entries: list[Entry]
         if row is None:
             out.append(Change(e, "added"))
             continue
-        pi, po, pc = _wanted_prices(e)
+        pi, po, pc = _wanted_prices(e, row)
         checks = (
             ("name", row.get("provider") != e.provider),
             ("key", row.get("api_key_env") != e.key),
@@ -389,7 +401,7 @@ def plan_changes(existing: Mapping[str, Mapping[str, Any]], entries: list[Entry]
             ("context", e.context is not None and row.get("context_window") != e.context),
             ("max_output", e.max_output is not None and row.get("max_output") != e.max_output),
             # "free" matches what the exporter calls free (0 / 0, or a free-tier provider with no stored price)
-            ("price", e.free and not is_free(row)),
+            ("price", e.free and not _free_row(row)),
             ("price in", not e.free and pi is not None and row.get("price_in_per_mtok") != pi),
             ("price out", not e.free and po is not None and row.get("price_out_per_mtok") != po),
             ("price cache_read", not e.free and pc is not None and row.get("price_cache_read_per_mtok") != pc),
@@ -404,11 +416,11 @@ def plan_changes(existing: Mapping[str, Mapping[str, Any]], entries: list[Entry]
     return out
 
 
-def upsert_args(c: Change) -> dict[str, Any]:
+def upsert_args(c: Change, row: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """The ``Database.upsert_models`` item for one change. New models are added disabled; existing ones keep
     ``enabled`` and their health status."""
     e = c.entry
-    pi, po, pc = _wanted_prices(e)
+    pi, po, pc = _wanted_prices(e, row)
     return dict(alias=e.alias, provider=e.provider, api_key_env=e.key, api_base=e.api_base,
                 model_class=e.primary, priority=e.priority, price_in=pi, price_out=po, price_cache=pc,
                 enabled=False if c.action == "added" else None, thinking=e.thinking or "default",
@@ -489,7 +501,7 @@ def run_import(db_path: Path, data: bytes, *, dry_run: bool = False,
     if exists and existing:
         say(f"kiko: backup {backup_database(db_path).name}")
     try:
-        db.upsert_models([upsert_args(c) for c in todo])  # one transaction: all or nothing
+        db.upsert_models([upsert_args(c, existing.get(c.entry.alias)) for c in todo])  # one transaction: all or nothing
     except ValueError as e:
         say(f"kiko: the database refused the import ({e}); nothing was written")
         return 2

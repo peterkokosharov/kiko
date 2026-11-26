@@ -23,7 +23,7 @@ SECRET = "nvapi-SECRETVALUE1234567890abcdef"
 def d(tmp_path):
     d = kdb.Database(tmp_path / "kiko.db")
     d.upsert_model("opus", "cgw/opus", "ANTHROPIC_API_KEY", model_class="OPUS", roles=["OPUS", "CODER", "EYES"],
-                   price_in=0.0, price_out=0.0, context_window=1_000_000, max_output=128_000,
+                   price_in=4.0, price_out=20.0, context_window=1_000_000, max_output=128_000,
                    display_name="Anthropic Opus 5.5", status="ok")
     d.upsert_model("nemotron-ultra", "nvidia/nvidia/nemotron-3-ultra-550b-a55b", "NVIDIA_API_KEY",
                    model_class="OPUS", context_window=1_000_000, max_output=65_536, status="ok")  # free tier
@@ -62,12 +62,19 @@ def test_the_sample_model_has_every_field(d):
     assert [r.text for r in roles] == ["OPUS", "EYES", "CODER"] and roles[0].get("primary") == "true"
     assert m.findtext("context") == "1000000" and m.findtext("max_output") == "128000"
     price = m.find("price")
-    assert price.get("per") == "1M" and price.text == "free" and len(price) == 0
+    assert price.get("per") == "1M" and (price.text or "").strip() == ""
+    assert (price.findtext("in"), price.findtext("out")) == ("4", "20")
     assert m.findtext("priority") == "100"
 
 
 def test_alias_falls_back_to_the_database_alias(d):
     assert by_id(parse(d))["mystery"].findtext("alias") == "mystery"
+
+
+def test_stored_zero_zero_is_a_price_not_free(d):
+    d.upsert_model("flat", "cgw/flat", "CGW_TOKEN", model_class="SONNET", price_in=0.0, price_out=0.0)
+    p = by_id(parse(d))["flat"].find("price")
+    assert (p.text or "").strip() == "" and (p.findtext("in"), p.findtext("out")) == ("0", "0")
 
 
 def test_free_versus_priced_versus_unknown(d):

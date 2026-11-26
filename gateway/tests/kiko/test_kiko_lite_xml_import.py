@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def src_db(tmp_path):
     d = kdb.Database(tmp_path / "src" / "kiko.db")
     d.upsert_model("opus", "cgw/opus", "CGW_TOKEN", "http://127.0.0.1:4100/v1", "OPUS",
-                   roles=["OPUS", "CODER", "EYES"], price_in=0.0, price_out=0.0, context_window=1_000_000,
+                   roles=["OPUS", "CODER", "EYES"], price_in=4.0, price_out=20.0, context_window=1_000_000,
                    max_output=128_000, display_name="Anthropic Opus 5.5", status="ok")
     d.upsert_model("nemotron-ultra", "nvidia/nvidia/nemotron-3-ultra-550b-a55b", "NVIDIA_API_KEY", model_class="OPUS",
                    priority=50, context_window=1_000_000, max_output=65_536, status="ok", thinking="off",
@@ -108,7 +108,7 @@ def test_import_by_alias_updates_and_keeps_enabled_and_status(tmp_path):
     row = kdb.Database(target).get_model("opus")
     assert (row["provider"], row["api_key_env"], row["model_class"]) == ("cgw/opus", "CGW_TOKEN", "OPUS")
     assert row["roles"] == ["OPUS", "EYES", "CODER"] and row["display_name"] == "Anthropic Opus 5.5"
-    assert (row["price_in_per_mtok"], row["context_window"], row["max_output"]) == (0.0, 1_000_000, 128_000)
+    assert (row["price_in_per_mtok"], row["context_window"], row["max_output"]) == (4.0, 1_000_000, 128_000)
     assert row["thinking"] is None  # the file has none: back to default
     assert (row["enabled"], row["status"]) == (0, "error")  # operational state is the database's own
     assert len(list(target.parent.glob("kiko.db.bak-*-import"))) == 1  # backed up before the write
@@ -260,3 +260,14 @@ def test_importing_ones_own_export_is_all_unchanged(tmp_path):
     out = []
     assert catalog_xml.run_import(a.path, catalog_xml.export_xml(a.models()), dry_run=True, say=collect(out)) == 0
     assert "0 added, 0 changed, 4 unchanged" in out[-1], out
+
+
+def test_free_on_a_normal_provider_is_stored_zero_and_settles(tmp_path):
+    target = tmp_path / "t" / "kiko.db"
+    data = doc(model())  # price "free" at gemini: not a free-tier provider
+    assert catalog_xml.run_import(target, data, say=collect([]), settle=0) == 0
+    row = kdb.Database(target).get_model("m1")
+    assert (row["price_in_per_mtok"], row["price_out_per_mtok"]) == (0.0, 0.0)
+    out = []
+    assert catalog_xml.run_import(target, data, dry_run=True, say=collect(out)) == 0
+    assert "0 added, 0 changed, 1 unchanged" in out[-1], out

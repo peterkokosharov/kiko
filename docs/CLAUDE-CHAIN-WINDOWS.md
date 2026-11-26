@@ -29,13 +29,14 @@ Only in `...\.kiko-chain\kiko.db` (before: did not exist; after: created by the 
 set to that path and `PYTHONPATH=.` in `kiko-src\gateway` for all kiko_lite commands.
 
     add-provider cgw --api-base http://127.0.0.1:4100/v1 --api-key-env CGW_TOKEN
-    add-model haiku  --provider cgw/haiku  --api-base http://127.0.0.1:4100/v1 --api-key-env CGW_TOKEN --class HAIKU  --price-in 0 --price-out 0 --price-cache 0
-    add-model sonnet --provider cgw/sonnet --api-base http://127.0.0.1:4100/v1 --api-key-env CGW_TOKEN --class SONNET --price-in 0 --price-out 0 --price-cache 0
-    add-model opus   --provider cgw/opus   --api-base http://127.0.0.1:4100/v1 --api-key-env CGW_TOKEN --class OPUS   --price-in 0 --price-out 0 --price-cache 0
+    add-model haiku  --provider cgw/haiku  --api-base http://127.0.0.1:4100/v1 --api-key-env CGW_TOKEN --class HAIKU
+    add-model sonnet --provider cgw/sonnet --api-base http://127.0.0.1:4100/v1 --api-key-env CGW_TOKEN --class SONNET
+    add-model opus   --provider cgw/opus   --api-base http://127.0.0.1:4100/v1 --api-key-env CGW_TOKEN --class OPUS   --price-in 4 --price-out 20
 
 Result: providers table = the 6 built-ins + `cgw` (3 models); models haiku/sonnet/opus -> `custom/<id>`, key name
 CGW_TOKEN (only the name is stored, never the value). Also created by `serve`: `...\.kiko-chain\api-token` (kiko
-management token). Prices are 0 (flat-rate CLI login, no per-token cost).
+management token). Prices: opus is 4 / 20 USD per million tokens; sonnet and haiku have none yet (add them by running
+`add-model` again with --price-in/--price-out; an unset price is not the same as free).
 
 Existing `<home>\.kiko\kiko.db`: content unchanged (same size and date, 2026-11-05). Read-only
 `config` / `list-models` calls only added empty `kiko.db-shm` and `kiko.db-wal` files next to it (SQLite side
