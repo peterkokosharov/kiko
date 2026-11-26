@@ -228,7 +228,7 @@ def register(ui) -> None:  # ui: web.ui.WebUI
                 "enabled" in form, thinking=form.get("thinking", "default") or "default",
                 timeout=form.get("timeout", "").strip() or "default",
                 toolshim=form.get("toolshim", "off") or "off",
-                context_window=_tokens(form.get("context_window", "")), max_output=_tokens(form.get("max_output", "")),  # empty clears
+                context_window=_tokens(form.get("context_window", "")), max_output=_tokens(form.get("max_output", "")),  # empty keeps the stored value
                 roles=roles)
         except (ValueError, TypeError) as e:
             sess.flash("error", str(e))

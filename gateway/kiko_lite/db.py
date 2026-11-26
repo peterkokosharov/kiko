@@ -218,6 +218,23 @@ CREATE TABLE IF NOT EXISTS model_roles (
 );
 """
 
+# Keep model_roles in step when something else (kiko-full, a SQL client) changes models.model_class or deletes a
+# model. CREATE ... IF NOT EXISTS: also applied to a database that is already at v10 (see _migrate).
+_V10_TRIGGERS = """
+CREATE TRIGGER IF NOT EXISTS models_role_follow_class AFTER UPDATE OF model_class ON models
+WHEN OLD.model_class IS NOT NEW.model_class
+BEGIN
+    DELETE FROM model_roles WHERE model_id = OLD.id AND class_name = OLD.model_class;
+    INSERT OR IGNORE INTO model_roles(model_id, class_name)
+        SELECT NEW.id, NEW.model_class WHERE EXISTS (SELECT 1 FROM model_classes WHERE name = NEW.model_class);
+END;
+CREATE TRIGGER IF NOT EXISTS models_roles_cleanup AFTER DELETE ON models
+BEGIN
+    DELETE FROM model_roles WHERE model_id = OLD.id;
+END;
+"""
+_V10_TRIGGER_NAMES = {"models_role_follow_class", "models_roles_cleanup"}
+
 _V4 = """
 CREATE TABLE IF NOT EXISTS providers (
     name        TEXT PRIMARY KEY,
@@ -239,6 +256,12 @@ def default_path(cli_value: str | os.PathLike[str] | None = None,
 
 
 BUSY_TIMEOUT = 5.0  # seconds a connection waits for a lock (tests shorten it)
+
+
+def check_display_name(name: str | None) -> None:
+    """ValueError for a display name with a control character (it goes into the catalog XML and the UI)."""
+    if name is not None and any(ord(ch) < 32 for ch in name):
+        raise ValueError("the display name must not contain control characters")
 
 
 def ro_uri(path: str | os.PathLike[str]) -> str:
@@ -353,6 +376,12 @@ class Database:
                     con.executescript(_V5)  # on every open: an index dropped or lost is rebuilt
                 except sqlite3.OperationalError:
                     pass  # a write-protected file must still open
+            triggers = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='trigger'")}
+            if not _V10_TRIGGER_NAMES <= triggers:
+                try:
+                    con.executescript(_V10_TRIGGERS)  # a v10 database made before the triggers existed
+                except sqlite3.OperationalError:
+                    pass  # a write-protected file must still open
             return  # already migrated and complete: no write at all
         con.executescript(_SCHEMA)
         for table, column, definition in _COLUMNS:
@@ -367,6 +396,7 @@ class Database:
         con.executescript(_V4)
         con.executescript(_V5)
         con.executescript(_V10)
+        con.executescript(_V10_TRIGGERS)
         for table, column, _ in _COLUMNS:  # never mark a half-migrated DB as migrated
             if column not in Database._columns(con, table):
                 raise sqlite3.OperationalError(f"migration incomplete: {table}.{column} is missing")
@@ -615,6 +645,7 @@ class Database:
         ``roles``: classes the model serves (list or "A,B"); ``model_class`` is the primary and is always one of
         them. None keeps the stored roles on update (a changed ``model_class`` replaces the old primary role).
         ``display_name``: human name for the catalog export; None keeps it on update, "" clears it."""
+        check_display_name(display_name)
         for name, val in (("context_window", context_window), ("max_output", max_output)):
             if val is not None and (isinstance(val, bool) or not isinstance(val, int) or val <= 0):
                 raise ValueError(f"{name} must be a positive integer (tokens)")
@@ -732,6 +763,7 @@ class Database:
 
     def set_display_name(self, alias: str, name: str | None) -> bool:
         """Set the human name used by the catalog export (None or "" clears it). True if the row exists."""
+        check_display_name(name)
         with self._write() as con:
             return con.execute("UPDATE models SET display_name=? WHERE alias=?",
                                ((name or "").strip() or None, alias)).rowcount > 0

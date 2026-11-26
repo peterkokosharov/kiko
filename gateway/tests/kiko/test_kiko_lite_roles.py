@@ -57,6 +57,8 @@ def new_rule(d, cls):
 
 def downgrade_to_v9(path):
     con = sqlite3.connect(path)
+    con.execute("DROP TRIGGER IF EXISTS models_role_follow_class")  # v9 had no triggers
+    con.execute("DROP TRIGGER IF EXISTS models_roles_cleanup")
     con.execute("DROP TABLE model_roles")
     con.execute("ALTER TABLE models DROP COLUMN display_name")
     con.execute("PRAGMA user_version=9")
@@ -247,3 +249,71 @@ def test_management_models_and_roles_endpoint(tmp_path):
         assert d.get_model("opus")["roles"] == ["EYES", "CODER"]
     finally:
         s.stop()
+
+
+# ---- triggers: model_roles follows models written by something else ---------------------------------------
+
+def raw(path, sql, *params):
+    con = sqlite3.connect(path)
+    try:
+        out = con.execute(sql, params).fetchall()
+        con.commit()
+        return out
+    finally:
+        con.close()
+
+
+def role_names(path, alias):
+    return sorted(r[0] for r in raw(path, "SELECT class_name FROM model_roles r JOIN models m ON m.id=r.model_id"
+                                         " WHERE m.alias=?", alias))
+
+
+def test_triggers_keep_roles_in_step_with_a_direct_sql_change(tmp_path):
+    p = tmp_path / "kiko.db"
+    d = kdb.Database(p)
+    d.upsert_model("m", "gemini/gemini-3.5-flash-lite", "K", model_class="HAIKU", roles=["HAIKU", "EYES"])
+    raw(p, "UPDATE models SET model_class='SONNET' WHERE alias='m'")  # as kiko-full / a SQL client would
+    assert role_names(p, "m") == ["EYES", "SONNET"]
+    raw(p, "UPDATE models SET model_class='NOSUCHCLASS' WHERE alias='m'")  # unknown class: no role row for it
+    assert role_names(p, "m") == ["EYES"]
+    raw(p, "UPDATE models SET model_class='EYES' WHERE alias='m'")  # already a role: still one row
+    assert role_names(p, "m") == ["EYES"]
+    raw(p, "DELETE FROM models WHERE alias='m'")
+    assert raw(p, "SELECT COUNT(*) FROM model_roles") == [(0,)]
+
+
+def test_a_v10_database_without_the_triggers_gets_them_on_open(tmp_path):
+    p = tmp_path / "kiko.db"
+    d = kdb.Database(p)
+    d.upsert_model("m", "gemini/gemini-3.5-flash-lite", "K", model_class="HAIKU")
+    raw(p, "DROP TRIGGER models_role_follow_class")
+    raw(p, "DROP TRIGGER models_roles_cleanup")
+    assert d.schema_version() == 10
+    kdb.Database(p)  # reopen: already v10, the triggers come back
+    raw(p, "UPDATE models SET model_class='SONNET' WHERE alias='m'")
+    assert role_names(p, "m") == ["SONNET"]
+    raw(p, "DELETE FROM models")
+    assert raw(p, "SELECT COUNT(*) FROM model_roles") == [(0,)]
+
+
+def test_the_library_paths_still_agree_with_the_triggers(tmp_path):
+    d = kdb.Database(tmp_path / "kiko.db")
+    d.upsert_model("m", "gemini/gemini-3.5-flash-lite", "K", model_class="HAIKU", roles=["HAIKU", "EYES"])
+    d.set_model_class("m", "SONNET")
+    assert d.models()[0]["roles"] == ["SONNET", "EYES"]
+    d.set_roles("m", ["TUTOR", "EYES"], primary="TUTOR")
+    assert d.models()[0]["roles"] == ["TUTOR", "EYES"]
+    d.upsert_model("m", "gemini/gemini-3.5-flash-lite", "K", model_class="CODER")
+    assert d.models()[0]["roles"] == ["CODER", "EYES"]
+
+
+def test_display_names_with_control_characters_are_refused(tmp_path):
+    d = kdb.Database(tmp_path / "kiko.db")
+    d.upsert_model("m", "gemini/gemini-3.5-flash-lite", "K", display_name="Fine name")
+    for bad in ("two\nlines", "tab\there", "bell\x07"):
+        with pytest.raises(ValueError, match="control characters"):
+            d.set_display_name("m", bad)
+        with pytest.raises(ValueError, match="control characters"):
+            d.upsert_model("m", "gemini/gemini-3.5-flash-lite", "K", display_name=bad)
+    assert d.get_model("m")["display_name"] == "Fine name"
+    assert d.set_display_name("m", "") and d.get_model("m")["display_name"] is None
