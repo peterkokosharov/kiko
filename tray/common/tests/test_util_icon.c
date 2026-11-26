@@ -142,6 +142,15 @@ static void test_fmt_tokens(void)
     kt_fmt_tokens(1, 131072, b, sizeof b);   CHECK_STR(b, "131072");
     kt_fmt_tokens(1, 200000, b, sizeof b);   CHECK_STR(b, "200k");
     kt_fmt_tokens(1, 2500000, b, sizeof b);  CHECK_STR(b, "2500k");   /* same as Python fmt_tokens */
+    {   /* out of range or not a number: "?" and no undefined cast */
+        volatile double zero = 0.0;
+        kt_fmt_tokens(1, 1e300, b, sizeof b);        CHECK_STR(b, "?");
+        kt_fmt_tokens(1, 1e19, b, sizeof b);         CHECK_STR(b, "?");
+        kt_fmt_tokens(1, 9.1e15, b, sizeof b);       CHECK_STR(b, "?");
+        kt_fmt_tokens(1, -5.0, b, sizeof b);         CHECK_STR(b, "?");
+        kt_fmt_tokens(1, zero / zero, b, sizeof b);  CHECK_STR(b, "?");   /* NaN */
+        kt_fmt_tokens(1, 1000.5, b, sizeof b);       CHECK_STR(b, "?");   /* not a whole number */
+    }
 }
 
 int main(void)

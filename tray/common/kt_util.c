@@ -11,9 +11,13 @@
 
 void kt_fmt_tokens(int has_value, double n, char *buf, size_t sz)
 {
-    long long v = (long long)n;
+    long long v;
     if (!sz) return;
-    if (!has_value || n <= 0.0 || (double)v != n) snprintf(buf, sz, "?");
+    /* NaN fails every comparison, so it needs its own test; the range test comes BEFORE the cast (an
+       out-of-range double to long long is undefined behaviour). 9e15 < 2^53: every whole number below is exact. */
+    if (!has_value || n != n || n <= 0.0 || n > 9e15) { snprintf(buf, sz, "?"); return; }
+    v = (long long)n;
+    if ((double)v != n) snprintf(buf, sz, "?");
     else if (v % 1000000 == 0) snprintf(buf, sz, "%lldM", v / 1000000);
     else if (v % 1000 == 0) snprintf(buf, sz, "%lldk", v / 1000);
     else snprintf(buf, sz, "%lld", v);
