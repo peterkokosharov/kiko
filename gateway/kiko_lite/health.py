@@ -19,6 +19,7 @@ logs a key and stops promptly on ``stop()`` (the ``serve`` shutdown path).
 from __future__ import annotations
 
 import logging
+import math
 import threading
 from collections.abc import Callable
 
@@ -38,7 +39,7 @@ def parse_interval(raw: str | None) -> float:
     except ValueError:
         logger.warning("settings.health_check_interval is not a number: using %.0fs", DEFAULT_INTERVAL)
         return DEFAULT_INTERVAL
-    if v != v or v <= 0:  # NaN or 0 / negative: off
+    if math.isnan(v) or v <= 0:  # NaN or 0 / negative: off
         return 0.0
     return max(v, MIN_INTERVAL)
 

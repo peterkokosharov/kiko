@@ -912,3 +912,7 @@ def test_nonstream_error_log_has_no_outcome_fields(world, caplog):
     line = _request_lines(caplog, "/v1/messages")[0]
     assert "status=429" in line and "path=/v1/messages" in line
     assert "upstream=" not in line and "outcome=" not in line
+
+
+def test_parse_interval_nan_is_off():
+    assert health.parse_interval("nan") == 0.0
