@@ -1,6 +1,6 @@
 kiko test results
-date (UTC): 2026-11-25 09:23:22
-git commit: 4466fb5 (+uncommitted changes)
+date (UTC): 2026-11-26 13:58:29
+git commit: ec300a5
 os: Windows 11 (AMD64), python 3.14.7
 
 suite: ai-header-check
@@ -17,16 +17,16 @@ suite: pkgkit (unittest)
   passed: 6  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: tk tray model (unittest)
   command: python -I -m unittest discover -s tray/tk/tests -t tray
-  passed: 7  failed: 0  skipped: 0  stale: 0  -> PASS
+  passed: 10  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: windows tray core (unittest)
   command: python -I -m unittest discover -s tray/wincore/tests -t tray/wincore
-  passed: 14  failed: 0  skipped: 0  stale: 0  -> PASS
+  passed: 12  failed: 2  skipped: 0  stale: 0  -> FAIL
 suite: tray-python (pytest)
   command: pytest tray/python/tests  (tray/python staged as package 'tray')
-  passed: 79  failed: 0  skipped: 0  stale: 0  -> PASS
+  passed: 85  failed: 0  skipped: 0  stale: 0  -> PASS
 suite: gateway kiko_lite/kikolib/web/spy (pytest)
   command: cd gateway && PYTHONPATH=<repo>:<repo>/gateway pytest tests/kiko --continue-on-collection-errors
-  passed: 1381  failed: 0  skipped: 24  stale: 142  -> PASS
+  passed: 1440  failed: 1  skipped: 25  stale: 142  -> FAIL
   note: the vendored LiteLLM test tree under gateway/tests (everything except tests/kiko) is not run
   stale (needs litellm/fastapi or a removed web-ui/dist file; not counted as failure):
     ::tests.kiko.test_kiko_auth_failclosed
@@ -173,4 +173,4 @@ suite: gateway kiko_lite/kikolib/web/spy (pytest)
     tests.kiko.test_webui_hardening::test_pbkdf2_600k_new_and_old_hash_verifies
 not run here: tray C core (ctest): cmake/ctest not installed
 
-OVERALL: PASS
+OVERALL: FAIL
