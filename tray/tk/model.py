@@ -51,9 +51,21 @@ def server_rows(status: dict[str, Any]) -> list[tuple[str, str]]:
             ("database", str(s.get("db", "")))]
 
 
+def fmt_tokens(n: Any) -> str:
+    """Token count for people (mirror of kiko_lite.db.fmt_tokens): 1000000 -> "1M", 128000 -> "128k", unknown -> "?"."""
+    if not isinstance(n, int) or isinstance(n, bool) or n <= 0:
+        return "?"
+    if n % 1_000_000 == 0:
+        return f"{n // 1_000_000}M"
+    if n % 1000 == 0:
+        return f"{n // 1000}k"
+    return str(n)
+
+
 def model_rows(status: dict[str, Any]) -> list[tuple[str, ...]]:
-    """alias, target, class, enabled, key name, key found (never a value), health, last check, state."""
+    """alias, target, class, enabled, context, max out, key name, key found (never a value), health, last check, state."""
     return [(m.get("alias", "?"), m.get("target") or "", m.get("class") or "", "yes" if m.get("enabled") else "no",
+             fmt_tokens(m.get("context_window")), fmt_tokens(m.get("max_output")),
              m.get("key_name") or "", m.get("key_found") or "", m.get("mapping_error") or m.get("health") or "",
              m.get("last_check") or "", m.get("state") or "off") for m in _items(status, "models")]
 

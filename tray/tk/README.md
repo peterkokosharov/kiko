@@ -10,6 +10,7 @@
   panel, plus a real system-tray icon through the Tk 9 `tk systray` command).
 - `launcher.py`: staged by the installer as `kiko_tray_tk.pyw`; starts the tray hidden, logs start errors.
 - `tests/test_model.py`: unit tests of the model logic (state, tooltip, table rows); no Tk needed.
+- The Models tab ends its first columns with `context` and `max out` (`1M`, `262k`, `?` = unknown; `model.fmt_tokens`, a mirror of `kiko_lite.db.fmt_tokens`, data from `/ui/api/status`).
 - Shared logic (health state, Start/Stop of the chain, token) is `tray/wincore/kiko_tray_core.py`.
 
 ## What it is for

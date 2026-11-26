@@ -113,7 +113,8 @@ class StatusPage:
             where = self.key_where(name) if name else "NOT FOUND"
             status = r.get("status") or "unknown"
             out.append({"alias": r["alias"], "target": target, "class": r.get("model_class"),
-                        "enabled": bool(r.get("enabled")), "key_name": name, "key_found": where,
+                        "enabled": bool(r.get("enabled")), "context_window": r.get("context_window"),
+                        "max_output": r.get("max_output"), "key_name": name, "key_found": where,
                         "health": status, "last_check": _iso_age(r.get("last_check")), "mapping_error": problem,
                         # green: enabled, key found, last health ok; red: enabled but broken; grey: off / not yet known
                         "state": ("off" if not r.get("enabled") else
@@ -180,7 +181,7 @@ code{color:#93c5fd}
 <div id="err"></div>
 <div id="auth">Client key: <input id="key" type="password" autocomplete="off"> <button id="go">use</button></div>
 <h2>Models</h2>
-<table><thead><tr><th></th><th>alias</th><th>provider / model</th><th>class</th><th>enabled</th><th>key name</th>
+<table><thead><tr><th></th><th>alias</th><th>provider / model</th><th>class</th><th>enabled</th><th>context</th><th>max out</th><th>key name</th>
 <th>key found</th><th>health</th><th>last check</th></tr></thead><tbody id="models"></tbody></table>
 <h2>Recent requests</h2>
 <table><thead><tr><th></th><th>time</th><th>model</th><th>route</th><th>latency</th><th>error</th></tr></thead>
@@ -189,6 +190,9 @@ code{color:#93c5fd}
 var key = "", busy = false;
 function td(tr, text, cls){var c = document.createElement("td"); c.textContent = text == null ? "" : text;
   if(cls) c.className = cls; tr.appendChild(c); return c;}
+function tok(n){ // same rule as fmt_tokens in db.py
+  if(typeof n != "number" || n <= 0 || n % 1 != 0) return "?";
+  return n % 1000000 == 0 ? n / 1000000 + "M" : n % 1000 == 0 ? n / 1000 + "k" : String(n);}
 function dot(tr, cls){var c = document.createElement("td"), d = document.createElement("span");
   d.className = "dot " + cls; c.appendChild(d); tr.appendChild(c);}
 function fill(id, rows, draw){var b = document.getElementById(id); b.textContent = "";
@@ -200,6 +204,7 @@ function show(s){
   fill("models", s.models, function(tr, m){
     dot(tr, m.state);
     td(tr, m.alias); td(tr, m.target); td(tr, m["class"]); td(tr, m.enabled ? "yes" : "no");
+    td(tr, tok(m.context_window)); td(tr, tok(m.max_output));
     td(tr, m.key_name); td(tr, m.key_found, m.key_found == "NOT FOUND" ? "bad" : "");
     td(tr, m.mapping_error || m.health, m.health == "ok" ? "ok" : m.health == "error" ? "bad" : "");
     td(tr, m.last_check);});

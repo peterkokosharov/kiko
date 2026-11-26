@@ -132,8 +132,21 @@ static void test_log_order(void)
     free(t);
 }
 
+static void test_fmt_tokens(void)
+{
+    char b[24];
+    kt_fmt_tokens(0, 0, b, sizeof b);        CHECK_STR(b, "?");
+    kt_fmt_tokens(1, 0, b, sizeof b);        CHECK_STR(b, "?");
+    kt_fmt_tokens(1, 1000000, b, sizeof b);  CHECK_STR(b, "1M");
+    kt_fmt_tokens(1, 128000, b, sizeof b);   CHECK_STR(b, "128k");
+    kt_fmt_tokens(1, 131072, b, sizeof b);   CHECK_STR(b, "131072");
+    kt_fmt_tokens(1, 200000, b, sizeof b);   CHECK_STR(b, "200k");
+    kt_fmt_tokens(1, 2500000, b, sizeof b);  CHECK_STR(b, "2500k");   /* same as Python fmt_tokens */
+}
+
 int main(void)
 {
+    test_fmt_tokens();
     test_log_order();
     test_sb();
     test_dialog();

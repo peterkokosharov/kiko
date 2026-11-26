@@ -33,10 +33,11 @@ by `/kiko/v1/*`. A gateway that predates this module still degrades gracefully: 
 
 ### GET /kiko/v1/models
 ```json
-{"models":[{"name":"opus-4","class":"OPUS","enabled":true,"status":"ok"},
-           {"name":"haiku-3","class":"HAIKU","enabled":false,"status":"unknown"}]}
+{"models":[{"name":"opus-4","class":"OPUS","enabled":true,"status":"ok","context_window":1000000,"max_output":64000},
+           {"name":"haiku-3","class":"HAIKU","enabled":false,"status":"unknown","context_window":null,"max_output":null}]}
 ```
-`class` is a class name from `/kiko/v1/classes`; `status` is a free short word (`ok`, `down`, `unknown`).
+`class` is a class name from `/kiko/v1/classes`; `status` is a free short word (`ok`, `down`, `unknown`). `context_window` / `max_output` are token counts
+(integers) or `null` when unknown; the tray shows them as `1M` / `128k` / `?` (same rule as `kiko-lite list-models`).
 
 ### GET /kiko/v1/classes
 ```json

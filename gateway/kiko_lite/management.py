@@ -150,7 +150,8 @@ class ManagementAPI:
         out = []
         for r in self.db.models():
             out.append({"name": r["alias"], "class": r.get("model_class") or "SONNET",
-                        "enabled": bool(r.get("enabled")), "status": r.get("status") or "unknown"})
+                        "enabled": bool(r.get("enabled")), "status": r.get("status") or "unknown",
+                        "context_window": r.get("context_window"), "max_output": r.get("max_output")})
         return JsonResponse({"models": out})
 
     @_guarded

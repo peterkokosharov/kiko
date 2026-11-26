@@ -351,7 +351,7 @@ static kt_dialog *problem_dialog(kt_presenter *p, const char *kind, const char *
 
 static kt_dialog *build_table(kt_presenter *p, const char *kind, const char *title, const char *path,
                               const char *array_key, const char *const *cols, const char *const *fields,
-                              int ncols)
+                              int ncols, unsigned token_cols)
 {
     kt_json *j;
     char err[160];
@@ -373,7 +373,10 @@ static kt_dialog *build_table(kt_presenter *p, const char *kind, const char *tit
         char flag[6][32];
         for (c = 0; c < ncols && c < 6; c++) {
             const kt_json *f = kt_json_get(it, fields[c]);
-            if (kt_json_is_bool(f)) {
+            if (token_cols & (1u << c)) {   /* token counts: 1M / 128k / "?" when null or missing */
+                kt_fmt_tokens(kt_json_is_number(f), kt_json_number(f, 0.0), flag[c], sizeof flag[c]);
+                cells[c] = flag[c];
+            } else if (kt_json_is_bool(f)) {
                 snprintf(flag[c], sizeof flag[c], "%s", kt_json_bool(f, 0) ? "yes" : "no");
                 cells[c] = flag[c];
             } else if (kt_json_is_number(f)) {
@@ -393,9 +396,9 @@ static kt_dialog *build_table(kt_presenter *p, const char *kind, const char *tit
 
 static kt_dialog *build_models(kt_presenter *p)
 {
-    static const char *const cols[] = { "Name", "Class", "Enabled", "Status" };
-    static const char *const fields[] = { "name", "class", "enabled", "status" };
-    return build_table(p, "models", "kiko - Models", "/kiko/v1/models", "models", cols, fields, 4);
+    static const char *const cols[] = { "Name", "Class", "Enabled", "Status", "Context", "Max out" };
+    static const char *const fields[] = { "name", "class", "enabled", "status", "context_window", "max_output" };
+    return build_table(p, "models", "kiko - Models", "/kiko/v1/models", "models", cols, fields, 6, 0x30u);
 }
 
 static kt_dialog *build_classes(kt_presenter *p)
@@ -403,7 +406,7 @@ static kt_dialog *build_classes(kt_presenter *p)
     static const char *const cols[] = { "Class", "Keyword", "Role" };
     static const char *const fields[] = { "name", "keyword", "role" };
     kt_dialog *d = build_table(p, "classes", "kiko - Model classes", "/kiko/v1/classes", "classes",
-                               cols, fields, 3);
+                               cols, fields, 3, 0u);
     if (d && d->ncols > 0)
         kt_dialog_set_footer(d, "Read-only here. A class is changed with POST /kiko/v1/models/{name}/class.");
     return d;

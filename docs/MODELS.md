@@ -52,6 +52,12 @@ through their enabled candidates in the same test run.
 and `GET /model/info` (`max_input_tokens`, `max_output_tokens`). Set them with
 `kiko-lite add-model ALIAS ... --context-window N --max-output N` (kept when omitted).
 
+The tray apps show both in their Models panel as two extra columns, **Context** and **Max out** (`1M`, `262k`,
+`64k`, `?` = unknown), using the same rule as `list-models`: the native tray (Win10, GTK3 on Mint, Qt6 on
+Plasma, macOS) reads them from `GET /kiko/v1/models` (`context_window`, `max_output`; `null` = unknown), the
+tk tray from `/ui/api/status`. The Q4OS/TQt applet has no Models panel (log panel only). The panels are not
+sortable (none of their columns is).
+
 Source codes: **A** = Anthropic model docs (2026-11-26); **C** = public catalog models.dev
 (`https://models.dev/api.json`, fetched 2026-11-26; the provider entry named after `C`); **D** = the vendor's model
 card, from the author's knowledge and NOT re-fetched (treat as approximate). Provider-served limits can be lower

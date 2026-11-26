@@ -9,6 +9,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+void kt_fmt_tokens(int has_value, double n, char *buf, size_t sz)
+{
+    long long v = (long long)n;
+    if (!sz) return;
+    if (!has_value || n <= 0.0 || (double)v != n) snprintf(buf, sz, "?");
+    else if (v % 1000000 == 0) snprintf(buf, sz, "%lldM", v / 1000000);
+    else if (v % 1000 == 0) snprintf(buf, sz, "%lldk", v / 1000);
+    else snprintf(buf, sz, "%lld", v);
+}
+
 static int is_entry_start(const char *s)
 {
     int i;

@@ -18,7 +18,7 @@ from . import client, model
 
 INTERVAL_MS = 5000
 TREES = {  # tab -> (columns, row builder, widths)
-    "Models": (("alias", "target", "class", "enabled", "key name", "key found", "health", "last check", "state"),
+    "Models": (("alias", "target", "class", "enabled", "context", "max out", "key name", "key found", "health", "last check", "state"),
                model.model_rows),
     "Requests": (("ok", "time", "model", "route", "latency", "error"), model.request_rows),
     "Classes": (("class", "models", "enabled", "aliases"), model.class_rows),
@@ -102,7 +102,7 @@ class App:
         t = ttk.Treeview(f, columns=cols, show="headings")
         for c in cols:
             t.heading(c, text=c)
-            t.column(c, width=110, stretch=True)
+            t.column(c, width=70 if c in ("context", "max out") else 110, stretch=True)
         sb = ttk.Scrollbar(f, orient="vertical", command=t.yview)
         t.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")

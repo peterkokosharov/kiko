@@ -38,6 +38,10 @@ void  kt_sb_free(kt_sb *sb);
  * NULL only on out of memory. */
 char *kt_log_newest_first(const char *const *lines, size_t n);
 
+/* Token count for people, same rule as kiko_lite.db.fmt_tokens: 1000000 -> "1M", 128000 -> "128k", 131072 ->
+ * "131072"; unknown (not a whole number > 0, or has_value == 0) -> "?".  Writes at most sz bytes (NUL-terminated). */
+void  kt_fmt_tokens(int has_value, double n, char *buf, size_t sz);
+
 /* Overwrites n bytes in a way the compiler may not optimise away (for tokens). */
 void  kt_secure_zero(void *p, size_t n);
 

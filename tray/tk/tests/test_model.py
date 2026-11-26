@@ -61,5 +61,17 @@ class Text(unittest.TestCase):
         self.assertEqual(cls[1], ("x", "2", "1", "a, b"))
 
 
+class Tokens(unittest.TestCase):
+    def test_fmt_tokens_same_as_cli(self):
+        self.assertEqual([model.fmt_tokens(x) for x in (None, 0, True, "5", 1_000_000, 128_000, 131_072, 200_000)],
+                         ["?", "?", "?", "?", "1M", "128k", "131072", "200k"])
+
+    def test_model_rows_have_context_and_max_out(self):
+        rows = model.model_rows({"models": [{"alias": "a", "enabled": True, "context_window": 1_000_000,
+                                             "max_output": 64_000}, {"alias": "b"}]})
+        self.assertEqual(rows[0][3:6], ("yes", "1M", "64k"))
+        self.assertEqual(rows[1][3:6], ("no", "?", "?"))
+
+
 if __name__ == "__main__":
     unittest.main()
