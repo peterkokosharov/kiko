@@ -97,9 +97,9 @@ def test_a_bad_block_stays_as_text_next_to_a_good_one():
 
 # ---- db: column, migration, CLI ----
 
-def test_schema_8_column_and_upsert_semantics(tmp_path):
+def test_schema_column_and_upsert_semantics(tmp_path):
     d = Database(tmp_path / "k.db")
-    assert kdb.SCHEMA_VERSION == 8 and d.schema_version() == 8
+    assert kdb.SCHEMA_VERSION == 9 and d.schema_version() == 9
     kw = dict(api_base="http://127.0.0.1:1/v1")
     d.upsert_model("m", "acme/x", "KEY_X", **kw)
     assert d.get_model("m")["toolshim"] is None
@@ -131,7 +131,7 @@ def test_v7_db_with_rows_migrates_and_keeps_them(tmp_path):
     con.commit()
     con.close()
     d2 = Database(p)
-    assert d2.schema_version() == 8
+    assert d2.schema_version() == 9
     rows = {m["alias"]: m for m in d2.models()}
     assert set(rows) == {"keep", "two"}
     assert rows["keep"]["priority"] == 3 and rows["keep"]["thinking"] == "off" and rows["keep"]["timeout"] == 600.0
