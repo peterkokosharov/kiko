@@ -396,8 +396,8 @@ static kt_dialog *build_table(kt_presenter *p, const char *kind, const char *tit
 
 static kt_dialog *build_models(kt_presenter *p)
 {
-    static const char *const cols[] = { "Name", "Class", "Enabled", "Status", "Context", "Max out" };
-    static const char *const fields[] = { "name", "class", "enabled", "status", "context_window", "max_output" };
+    static const char *const cols[] = { "Name", "Roles", "Enabled", "Status", "Context", "Max out" };
+    static const char *const fields[] = { "name", "roles_text", "enabled", "status", "context_window", "max_output" };
     return build_table(p, "models", "kiko - Models", "/kiko/v1/models", "models", cols, fields, 6, 0x30u);
 }
 

@@ -61,6 +61,15 @@ class Text(unittest.TestCase):
         self.assertEqual(cls[1], ("x", "2", "1", "a, b"))
 
 
+class Roles(unittest.TestCase):
+    def test_model_rows_show_roles_primary_first_or_fall_back_to_class(self):
+        rows = model.model_rows({"models": [
+            {"alias": "opus", "class": "OPUS", "roles": ["OPUS", "EYES", "CODER"], "roles_text": "OPUS, EYES, CODER"},
+            {"alias": "old", "class": "HAIKU"}]})
+        self.assertEqual(rows[0][2], "OPUS, EYES, CODER")
+        self.assertEqual(rows[1][2], "HAIKU")
+
+
 class Tokens(unittest.TestCase):
     def test_fmt_tokens_same_as_cli(self):
         self.assertEqual([model.fmt_tokens(x) for x in (None, 0, True, "5", 1_000_000, 128_000, 131_072, 200_000)],

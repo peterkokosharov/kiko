@@ -33,10 +33,12 @@ by `/kiko/v1/*`. A gateway that predates this module still degrades gracefully: 
 
 ### GET /kiko/v1/models
 ```json
-{"models":[{"name":"opus-4","class":"OPUS","enabled":true,"status":"ok","context_window":1000000,"max_output":64000},
-           {"name":"haiku-3","class":"HAIKU","enabled":false,"status":"unknown","context_window":null,"max_output":null}]}
+{"models":[{"name":"opus-4","class":"OPUS","roles":["OPUS","EYES","CODER"],"roles_text":"OPUS, EYES, CODER","enabled":true,"status":"ok","context_window":1000000,"max_output":64000},
+           {"name":"haiku-3","class":"HAIKU","roles":["HAIKU"],"roles_text":"HAIKU","enabled":false,"status":"unknown","context_window":null,"max_output":null}]}
 ```
-`class` is a class name from `/kiko/v1/classes`; `status` is a free short word (`ok`, `down`, `unknown`). `context_window` / `max_output` are token counts
+`class` is the PRIMARY class (a class name from `/kiko/v1/classes`); `roles` are all classes the model serves
+(schema v10, primary first, at least one); `roles_text` is the same joined with `", "` for tables (the tray Models panel
+shows it in its Roles column). `status` is a free short word (`ok`, `down`, `unknown`). `context_window` / `max_output` are token counts
 (integers) or `null` when unknown; the tray shows them as `1M` / `128k` / `?` (same rule as `kiko-lite list-models`).
 
 ### GET /kiko/v1/classes
@@ -47,7 +49,14 @@ by `/kiko/v1/*`. A gateway that predates this module still degrades gracefully: 
 ### POST /kiko/v1/models/{name}/class
 Request `{"class":"HAIKU"}`. `{name}`: `[A-Za-z0-9._:-]+`; class: `[A-Z0-9_]+`. Reply `200`
 `{"name":"haiku-3","class":"HAIKU"}`; `404` unknown model; `400` unknown class. Atomic: the new class is
-visible to the next request. (The tray has the client call ready; the editing UI is a later step.)
+visible to the next request. Only the primary role moves (the old primary role is replaced, the other roles stay).
+(The tray has the client call ready; the editing UI is a later step.)
+
+### POST /kiko/v1/models/{name}/roles
+Request `{"roles":["OPUS","CODER","EYES"],"primary":"OPUS"}`; `primary` is optional (default: the current primary if it is
+still listed, else the first role). Roles: a non-empty list of up to 64 class names `[A-Z0-9_]+`. Reply `200`
+`{"name":"opus-4","class":"OPUS","roles":["OPUS","EYES","CODER"]}`; `404` unknown model; `400` empty list or unknown class
+(a model keeps at least one role). Replaces the whole set; a class alias then picks the model by role membership.
 
 ### GET /kiko/v1/keys
 Names and presence only:

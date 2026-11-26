@@ -18,7 +18,7 @@ from . import client, model
 
 INTERVAL_MS = 5000
 TREES = {  # tab -> (columns, row builder, widths)
-    "Models": (("alias", "target", "class", "enabled", "context", "max out", "key name", "key found", "health", "last check", "state"),
+    "Models": (("alias", "target", "roles", "enabled", "context", "max out", "key name", "key found", "health", "last check", "state"),
                model.model_rows),
     "Requests": (("ok", "time", "model", "route", "latency", "error"), model.request_rows),
     "Classes": (("class", "models", "enabled", "aliases"), model.class_rows),

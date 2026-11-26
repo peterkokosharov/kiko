@@ -259,15 +259,15 @@ static void test_dialogs(void)
 
     /* models and classes */
     fake_set("/kiko/v1/models", 0, 200,
-             "{\"models\":[{\"name\":\"opus\",\"class\":\"OPUS\",\"enabled\":true,\"status\":\"ok\","
+             "{\"models\":[{\"name\":\"opus\",\"class\":\"OPUS\",\"roles_text\":\"OPUS, CODER, EYES\",\"enabled\":true,\"status\":\"ok\","
              "\"context_window\":1000000,\"max_output\":64000},"
-             "{\"name\":\"haiku\",\"class\":\"HAIKU\",\"enabled\":false,\"status\":\"unknown\","
+             "{\"name\":\"haiku\",\"class\":\"HAIKU\",\"roles_text\":\"HAIKU\",\"enabled\":false,\"status\":\"unknown\","
              "\"context_window\":null}]}");
     open_and_wait(KT_ID_MODELS);
     d = last_dialog("models");
     CHECK_INT(d->nrows, 2);
     CHECK_INT(d->ncols, 6);
-    CHECK(strstr(d->cells, "opus|OPUS|yes|ok|1M|64k\n") != NULL);
+    CHECK(strstr(d->cells, "opus|OPUS, CODER, EYES|yes|ok|1M|64k\n") != NULL);
     CHECK(strstr(d->cells, "haiku|HAIKU|no|unknown|?|?\n") != NULL);
     fake_set("/kiko/v1/classes", 0, 200,
              "{\"classes\":[{\"name\":\"OPUS\",\"keyword\":\"opus\",\"role\":\"architect\"}]}");

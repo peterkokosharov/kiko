@@ -79,8 +79,9 @@ def select(label: str, name: str, options: list[Any], current: str) -> Markup:
     return tag("p", tag("label", label, for_="f-" + name), tag("select", *opts, name=name, id="f-" + name))
 
 
-def checkbox(label: str, name: str, checked: bool) -> Markup:
-    return tag("p", tag("label", void("input", type="checkbox", name=name, checked=checked), " ", label))
+def checkbox(label: str, name: str, checked: bool, value: str | None = None) -> Markup:
+    """A labelled checkbox; ``value`` (when given) is what the browser posts for it, so several boxes can share a name."""
+    return tag("p", tag("label", void("input", type="checkbox", name=name, checked=checked, value=value), " ", label))
 
 
 def button(text: str, cls: str = "") -> Markup:

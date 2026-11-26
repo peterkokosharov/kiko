@@ -130,3 +130,24 @@ provider that really answers.
 No NVIDIA equivalent exists for `hub-gpt-6-luna`, `hub-gpt-5-nano`, `gpt-astra` (OpenAI / OpenRouter); Mistral Large 4
 is already served by NVIDIA as `nvidia-large`. NVIDIA also lists models llmhub does not know (kimi-k3.1-pro, glm-5.3-flash,
 minimax-m3.1-flash, step-5-preview); they were not added.
+
+## One model, many roles (schema v10, 2026-11-26)
+
+A model serves one PRIMARY class (`models.model_class`: shown in lists, used for sorting, what kiko-full knows) and any
+number of further roles, stored in `model_roles(model_id, class_name)`. A class alias (`opus`, `sonnet`, `haiku`,
+`fable`, `coder`, `eyes`, `tutor`, `router`, ...) picks its candidates among the models that HAVE that role, then by
+the unchanged rules: enabled, status ok / unknown / error, priority, id. A model with no role rows (written by
+kiko-full) serves its primary class only. The v9 to v10 migration copies each model's class as its first role, so
+today's routing is identical (tests rebuild the live data shape and compare `opus`, `sonnet`, `haiku`, ... before
+and after). `display_name` (nullable) is the human name used by the catalog export.
+
+* CLI: `kiko-lite add-model ALIAS ... --role OPUS,CODER,EYES` (the first is the primary unless `--class` is given; the
+  primary is always one of the roles; `--role` replaces the set, omitted = kept; at least one role). `list-models`
+  prints `roles=...` for models with more than one. `--display-name "Anthropic Opus 5.5"`.
+* Web UI: the Models form has a Roles checklist next to the primary class; the list shows "Roles (primary first)".
+* Tray: the Models panel (native Win10 / GTK3 / Qt6 / macOS through `kt_presenter.c`, and the tk tray) shows the roles
+  in place of the class. The trays have no editing UI (the panels are read-only tables), so there is no checklist
+  there; roles are changed with `POST /kiko/v1/models/{name}/roles` (docs/API-CONTRACT.md), the CLI or the web UI.
+* Owner decision 2026-11-26: the Claude Opus route (`opus`, "Anthropic Opus 5.5") has roles OPUS (primary), CODER and
+  EYES, context 1M, max output 128k.
+

@@ -67,10 +67,10 @@ def test_models_and_classes_match_the_contract_shapes(srv):
     assert status == 200, body
     # Database order is model_class, priority, id: HAIKU before SONNET.
     assert body == {"models": [
-        {"name": "fast", "class": "HAIKU", "enabled": True, "status": "ok",
-         "context_window": None, "max_output": None},
-        {"name": "slow", "class": "SONNET", "enabled": False, "status": "error",
-         "context_window": None, "max_output": None},
+        {"name": "fast", "class": "HAIKU", "roles": ["HAIKU"], "roles_text": "HAIKU", "enabled": True,
+         "status": "ok", "context_window": None, "max_output": None},
+        {"name": "slow", "class": "SONNET", "roles": ["SONNET"], "roles_text": "SONNET", "enabled": False,
+         "status": "error", "context_window": None, "max_output": None},
     ]}
     status, body = _get(s, "/kiko/v1/classes")
     assert status == 200, body
@@ -124,8 +124,8 @@ def test_set_class_is_visible_to_the_next_request_and_validates_input(srv):
     assert body == {"name": "fast", "class": "OPUS"}
     status, body = _get(s, "/kiko/v1/models")
     assert status == 200, body
-    assert {"name": "fast", "class": "OPUS", "enabled": True, "status": "ok",
-            "context_window": None, "max_output": None} in body["models"]
+    assert {"name": "fast", "class": "OPUS", "roles": ["OPUS"], "roles_text": "OPUS", "enabled": True,
+            "status": "ok", "context_window": None, "max_output": None} in body["models"]
     status, body = _get(s, "/kiko/v1/models/fast/class", method="POST",
                         body=json.dumps({"class": "NOPE"}))
     assert status == 400 and body["error"]["code"] == "bad_request", body

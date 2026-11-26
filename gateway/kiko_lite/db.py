@@ -4,13 +4,18 @@
 """SQLite store shared with kiko-full: the SAME file (default ``~/.kiko/kiko.db``) and the same three tables.
 
 ``billing``, ``models`` and ``responses`` keep kiko-full's columns, so an existing kiko.db keeps working in both
-directions. kiko-lite adds only nullable columns and new tables, guarded by ``PRAGMA user_version`` (9):
+directions. kiko-lite adds only nullable columns and new tables, guarded by ``PRAGMA user_version`` (10):
 
 * ``models``  + ``price_in_per_mtok``, ``price_out_per_mtok``, ``price_cache_read_per_mtok``
 * ``models``  + ``thinking`` (v6; NULL = send nothing, else on / off / off-prompt, see ``THINKING_MODES``)
 * ``models``  + ``timeout`` (v7; seconds, NULL = the global ``[proxy] upstream_timeout``, see ``check_timeout``)
 * ``models``  + ``toolshim`` (v8; NULL = off, "on" = turn tool calls written as text into real ones, see ``TOOLSHIM_MODES``)
 * ``models``  + ``context_window``, ``max_output`` (v9; tokens, NULL = unknown)
+* ``models``  + ``display_name`` (v10; human name for the catalog export, NULL = the alias is shown)
+* ``model_roles(model_id, class_name)`` (v10): the roles (classes) a model serves. ``models.model_class`` stays
+  the PRIMARY role (display, sort, kiko-full compatibility); a class alias such as ``opus`` or ``coder`` picks
+  its candidates among the models that HAVE that role, then by status and priority as before. A model without
+  role rows (written by kiko-full) serves its ``model_class`` only.
 * ``billing`` + ``attempts``, ``latency_ms``, ``upstream_model``, ``error``, ``request_id`` (v5: the id of the
   ``responses`` row that holds the text of the request, see ``add_response``)
 * ``aliases(glob PK, target)`` and ``settings(key PK, value)`` (what kiko-full kept in its YAML)
@@ -44,7 +49,7 @@ from urllib.parse import quote
 from kikolib import config as kconfig
 from kikolib import posix
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 # Per-model "thinking" switch for OpenAI-compatible upstreams (NULL in the column = default = send nothing):
 # on / off use the chat_template_kwargs enable_thinking body field, off-prompt adds a "/no_think" system line.
 THINKING_MODES = ("default", "on", "off", "off-prompt")
@@ -177,6 +182,7 @@ _COLUMNS = (
     ("models", "toolshim", "TEXT"),
     ("models", "context_window", "INTEGER"),
     ("models", "max_output", "INTEGER"),
+    ("models", "display_name", "TEXT"),
     ("billing", "attempts", "INTEGER"),
     ("billing", "latency_ms", "INTEGER"),
     ("billing", "upstream_model", "TEXT"),
@@ -202,6 +208,14 @@ CREATE TABLE IF NOT EXISTS model_classes (
 _V5 = """
 CREATE INDEX IF NOT EXISTS billing_request_id ON billing(request_id);
 CREATE INDEX IF NOT EXISTS responses_created_at ON responses(created_at);
+"""
+
+_V10 = """
+CREATE TABLE IF NOT EXISTS model_roles (
+    model_id   INTEGER NOT NULL REFERENCES models(id) ON DELETE CASCADE,
+    class_name TEXT    NOT NULL REFERENCES model_classes(name),
+    PRIMARY KEY (model_id, class_name)
+);
 """
 
 _V4 = """
@@ -352,6 +366,7 @@ class Database:
         con.executescript(_V2)
         con.executescript(_V4)
         con.executescript(_V5)
+        con.executescript(_V10)
         for table, column, _ in _COLUMNS:  # never mark a half-migrated DB as migrated
             if column not in Database._columns(con, table):
                 raise sqlite3.OperationalError(f"migration incomplete: {table}.{column} is missing")
@@ -381,6 +396,9 @@ class Database:
             if version < 4:  # the supported providers, seeded once; one deleted later is not re-added
                 con.executemany("INSERT OR IGNORE INTO providers(name, api_base, api_key_env, sort) VALUES(?,?,?,?)",
                                 _PROVIDERS_V4)
+            if version < 10:  # every model keeps its current class as its first (primary) role
+                con.execute("INSERT OR IGNORE INTO model_roles(model_id, class_name)"
+                            " SELECT id, model_class FROM models")
             con.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
             con.commit()
         except BaseException:
@@ -407,9 +425,11 @@ class Database:
                                       " GROUP BY model_class").fetchall()) if self._has_table(con, "models") else {}
             return [{"name": n, "keyword": k, "role": r, "sort": o, "models": counts.get(n, 0)}
                     for n, k, r, o in DEFAULT_CLASSES]
+        roles = (" OR m.id IN (SELECT model_id FROM model_roles r WHERE r.class_name=c.name)"
+                 if self._has_table(con, "model_roles") else "")
         rows = con.execute(
             "SELECT c.name, c.keyword, c.role, c.sort,"
-            " (SELECT COUNT(*) FROM models m WHERE m.model_class=c.name AND m.enabled=1) AS models"
+            f" (SELECT COUNT(*) FROM models m WHERE (m.model_class=c.name{roles}) AND m.enabled=1) AS models"
             " FROM model_classes c ORDER BY c.sort, c.name").fetchall()
         return [dict(r) for r in rows]
 
@@ -495,28 +515,93 @@ class Database:
 
     # -- models --
     def models(self) -> list[dict[str, Any]]:
+        """All rows (``SELECT *``) plus ``roles``: the list of class names, the primary (``model_class``) first."""
         with self._read() as con:
-            rows = con.execute("SELECT * FROM models ORDER BY model_class, priority, id").fetchall()
-        return [dict(r) for r in rows]
+            rows = [dict(r) for r in con.execute("SELECT * FROM models ORDER BY model_class, priority, id")]
+            self._attach_roles(con, rows)
+        return rows
 
     def get_model(self, alias: str) -> dict[str, Any] | None:
         with self._read() as con:
             row = con.execute("SELECT * FROM models WHERE alias=?", (alias,)).fetchone()
-        return dict(row) if row else None
+            out = [dict(row)] if row else []
+            self._attach_roles(con, out)
+        return out[0] if out else None
+
+    def _attach_roles(self, con: sqlite3.Connection, rows: list[dict[str, Any]]) -> None:
+        """Add ``roles`` to every row: primary first, the others in class order; a row without role rows (kiko-full
+        wrote it, or the DB is not migrated) serves its ``model_class`` only."""
+        extra: dict[int, list[str]] = {}
+        if self._has_table(con, "model_roles"):
+            if self._has_table(con, "model_classes"):
+                sql = ("SELECT r.model_id, r.class_name FROM model_roles r"
+                       " LEFT JOIN model_classes c ON c.name = r.class_name"
+                       " ORDER BY COALESCE(c.sort, 99999), r.class_name")
+            else:
+                sql = "SELECT model_id, class_name FROM model_roles ORDER BY class_name"
+            for mid, name in con.execute(sql):
+                extra.setdefault(int(mid), []).append(name)
+        for row in rows:
+            primary = row["model_class"]
+            row["roles"] = [primary] + [n for n in extra.get(int(row["id"]), []) if n != primary]
+
+    @staticmethod
+    def _check_roles(known: list[str], roles: Any) -> list[str]:
+        """Normalise a role list (upper case, no duplicates); ValueError when empty or a role is not a class."""
+        if isinstance(roles, str):
+            roles = roles.split(",")
+        out = list(dict.fromkeys(str(x).strip().upper() for x in roles if str(x).strip()))
+        if not out:
+            raise ValueError("a model must keep at least one role")
+        bad = [x for x in out if x not in known]
+        if bad:
+            raise ValueError(f"unknown role {', '.join(bad)}; roles must be among {', '.join(known)}")
+        return out
+
+    @staticmethod
+    def _store_roles(con: sqlite3.Connection, model_id: int, roles: list[str]) -> None:
+        con.execute("DELETE FROM model_roles WHERE model_id=?", (model_id,))
+        con.executemany("INSERT INTO model_roles(model_id, class_name) VALUES(?,?)",
+                        [(model_id, r) for r in roles])
+
+    def set_roles(self, alias: str, roles: Any, primary: str | None = None) -> bool:
+        """Replace all roles of a model. The primary (``model_class``) is ``primary`` if given, else the current one
+        when it is still among the roles, else the first role (it is always one of the roles). ValueError for an
+        empty list or an unknown class. True if the row exists."""
+        with self._write() as con:
+            known = [c["name"] for c in self._classes_in(con)]
+            wanted = self._check_roles(known, roles)
+            row = con.execute("SELECT id, model_class FROM models WHERE alias=?", (alias,)).fetchone()
+            if row is None:
+                return False
+            if primary is not None:
+                primary = primary.strip().upper()
+                if primary not in known:
+                    raise ValueError(f"model class must be one of {', '.join(known)}")
+            else:
+                primary = row["model_class"] if row["model_class"] in wanted else wanted[0]
+            wanted = [primary] + [r for r in wanted if r != primary]
+            con.execute("UPDATE models SET model_class=? WHERE id=?", (primary, row["id"]))
+            self._store_roles(con, int(row["id"]), wanted)
+            return True
 
     def upsert_model(self, alias: str, provider: str, api_key_env: str, api_base: str | None = None,
                      model_class: str = "SONNET", priority: int = 100, price_in: float | None = None,
                      price_out: float | None = None, price_cache: float | None = None,
                      enabled: bool | None = None, status: str | None = None,
                      thinking: str | None = None, timeout: float | str | None = None, toolshim: str | None = None,
-                     context_window: int | None = None, max_output: int | None = None) -> bool:
+                     context_window: int | None = None, max_output: int | None = None,
+                     roles: Any = None, display_name: str | None = None) -> bool:
         """Insert or update by alias (id, status, enabled and given prices are kept on update). True if new.
 
         ``thinking``: one of ``THINKING_MODES``; None keeps the stored value on update ("default" clears it).
         ``timeout``: upstream timeout in seconds for this model (see ``check_timeout``); None keeps the stored value
         on update, 0 or "default" clears it (the global timeout applies again).
         ``toolshim``: "on" / "off" (see ``TOOLSHIM_MODES``); None keeps the stored value on update.
-        ``context_window`` / ``max_output``: tokens (positive int); None keeps the stored value on update."""
+        ``context_window`` / ``max_output``: tokens (positive int); None keeps the stored value on update.
+        ``roles``: classes the model serves (list or "A,B"); ``model_class`` is the primary and is always one of
+        them. None keeps the stored roles on update (a changed ``model_class`` replaces the old primary role).
+        ``display_name``: human name for the catalog export; None keeps it on update, "" clears it."""
         for name, val in (("context_window", context_window), ("max_output", max_output)):
             if val is not None and (isinstance(val, bool) or not isinstance(val, int) or val <= 0):
                 raise ValueError(f"{name} must be a positive integer (tokens)")
@@ -530,11 +615,15 @@ class Database:
             known = [c["name"] for c in self._classes_in(con)]
             if cls not in known:
                 raise ValueError(f"model class must be one of {', '.join(known)}")
+            wanted = None if roles is None else self._check_roles(known, roles)
             self._check_alias(con, alias)
-            existed = con.execute("SELECT 1 FROM models WHERE alias=?", (alias,)).fetchone() is not None
+            old = con.execute("SELECT id, model_class FROM models WHERE alias=?", (alias,)).fetchone()
+            existed = old is not None
+            old_roles = [r[0] for r in con.execute("SELECT class_name FROM model_roles WHERE model_id=?",
+                                                   (old["id"],))] if existed else []
             con.execute(
                 "INSERT INTO models(alias, provider, api_base, api_key_env, model_class, priority, enabled, status,"
-                " price_in_per_mtok, price_out_per_mtok, price_cache_read_per_mtok, thinking, timeout, toolshim, context_window, max_output) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                " price_in_per_mtok, price_out_per_mtok, price_cache_read_per_mtok, thinking, timeout, toolshim, context_window, max_output, display_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
                 " ON CONFLICT(alias) DO UPDATE SET provider=excluded.provider, api_base=excluded.api_base,"
                 " api_key_env=excluded.api_key_env, model_class=excluded.model_class, priority=excluded.priority,"
                 " enabled=COALESCE(?, models.enabled), status=COALESCE(?, models.status),"
@@ -546,13 +635,24 @@ class Database:
                 " timeout=CASE WHEN ? THEN models.timeout ELSE excluded.timeout END,"
                 " toolshim=CASE WHEN ? THEN models.toolshim ELSE excluded.toolshim END,"
                 " context_window=COALESCE(excluded.context_window, models.context_window),"
-                " max_output=COALESCE(excluded.max_output, models.max_output)",
+                " max_output=COALESCE(excluded.max_output, models.max_output),"
+                " display_name=CASE WHEN ? THEN models.display_name ELSE excluded.display_name END",
                 (alias, provider, api_base, api_key_env, cls, int(priority),
                  1 if enabled is None else int(enabled), status or "unknown", price_in, price_out, price_cache,
                  None if thinking in (None, "default") else thinking, None if timeout is None else tmo,
                  "on" if toolshim == "on" else None, context_window, max_output,
-                 None if enabled is None else int(enabled), status, int(thinking is None), int(timeout is None), int(toolshim is None)),
+                 None if display_name is None else (display_name.strip() or None),
+                 None if enabled is None else int(enabled), status, int(thinking is None), int(timeout is None),
+                 int(toolshim is None), int(display_name is None)),
             )
+            mid = int(con.execute("SELECT id FROM models WHERE alias=?", (alias,)).fetchone()[0])
+            if wanted is not None:
+                final = wanted
+            elif existed:  # a changed primary class replaces the old primary role; the other roles stay
+                final = [r for r in old_roles if r != old["model_class"]] if old["model_class"] != cls else old_roles
+            else:
+                final = []
+            self._store_roles(con, mid, [cls] + [r for r in final if r != cls])
         return not existed
 
     @staticmethod
@@ -606,10 +706,23 @@ class Database:
             return con.execute("UPDATE models SET enabled=? WHERE alias=?", (int(enabled), alias)).rowcount > 0
 
     def set_model_class(self, alias: str, model_class: str) -> bool:
-        """Move a model to another class. True if the row exists (the caller validates the class name)."""
+        """Move a model to another PRIMARY class (its old primary role is replaced, other roles stay). True if the
+        row exists (the caller validates the class name)."""
         with self._write() as con:
-            return con.execute("UPDATE models SET model_class=? WHERE alias=?",
-                               (model_class, alias)).rowcount > 0
+            row = con.execute("SELECT id, model_class FROM models WHERE alias=?", (alias,)).fetchone()
+            if row is None:
+                return False
+            keep = [r[0] for r in con.execute("SELECT class_name FROM model_roles WHERE model_id=?", (row["id"],))
+                    if r[0] != row["model_class"]]
+            con.execute("UPDATE models SET model_class=? WHERE id=?", (model_class, row["id"]))
+            self._store_roles(con, int(row["id"]), [model_class] + [r for r in keep if r != model_class])
+            return True
+
+    def set_display_name(self, alias: str, name: str | None) -> bool:
+        """Set the human name used by the catalog export (None or "" clears it). True if the row exists."""
+        with self._write() as con:
+            return con.execute("UPDATE models SET display_name=? WHERE alias=?",
+                               ((name or "").strip() or None, alias)).rowcount > 0
 
     def set_thinking(self, alias: str, mode: str) -> bool:
         """Set the per-model thinking switch (one of ``THINKING_MODES``; "default" clears it). True if the row exists."""
@@ -641,13 +754,15 @@ class Database:
 
     def delete_model(self, alias: str) -> bool:
         with self._write() as con:
+            con.execute("DELETE FROM model_roles WHERE model_id IN (SELECT id FROM models WHERE alias=?)", (alias,))
             return con.execute("DELETE FROM models WHERE alias=?", (alias,)).rowcount > 0
 
     # -- aliases / settings --
     def delete_class(self, name: str) -> bool:
         """Delete a class; ValueError while a model still uses it. False when it does not exist."""
         with self._write() as con:
-            if con.execute("SELECT 1 FROM models WHERE model_class=? LIMIT 1", (name,)).fetchone():
+            if con.execute("SELECT 1 FROM models WHERE model_class=?"
+                           " UNION SELECT 1 FROM model_roles WHERE class_name=? LIMIT 1", (name, name)).fetchone():
                 raise ValueError(f"class {name} is still used by a model")
             return con.execute("DELETE FROM model_classes WHERE name=?", (name,)).rowcount > 0
 

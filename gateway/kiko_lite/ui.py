@@ -113,6 +113,8 @@ class StatusPage:
             where = self.key_where(name) if name else "NOT FOUND"
             status = r.get("status") or "unknown"
             out.append({"alias": r["alias"], "target": target, "class": r.get("model_class"),
+                        "roles": r.get("roles") or [r.get("model_class")],
+                        "roles_text": ", ".join(r.get("roles") or [str(r.get("model_class") or "")]),
                         "enabled": bool(r.get("enabled")), "context_window": r.get("context_window"),
                         "max_output": r.get("max_output"), "key_name": name, "key_found": where,
                         "health": status, "last_check": _iso_age(r.get("last_check")), "mapping_error": problem,

@@ -42,7 +42,7 @@ class Client:
             hdrs["Cookie"] = "; ".join(f"{k}={v}" for k, v in self.cookies.items())
         body = None
         if form is not None:
-            body = urlencode(form)
+            body = urlencode(form, doseq=True)
             hdrs["Content-Type"] = "application/x-www-form-urlencoded"
         conn.request(method, path, body=body, headers=hdrs)
         resp = conn.getresponse()
@@ -420,6 +420,28 @@ def test_models_crud(client, env):
     assert resp.status == 400
     client.post("/models/delete", {"alias": "gem"})
     assert db.get_model("gem") is None
+
+
+def test_models_form_has_a_role_checklist_and_saves_many_roles(client, env):
+    db = env[0]
+    form = {"alias": "gem", "provider": "gemini", "model_id": "x", "model_class": "OPUS", "priority": "7",
+            "enabled": "on"}
+    _, html = client.get("/models/new")
+    assert 'name="role" value="CODER"' in html and 'name="role" value="EYES"' in html
+    assert client.post("/models/save", {**form, "role": ["CODER", "EYES"]})[0].status == 303
+    row = db.get_model("gem")
+    assert row["model_class"] == "OPUS" and row["roles"][0] == "OPUS" and set(row["roles"]) == {"OPUS", "CODER", "EYES"}
+    _, html = client.get("/models/edit?alias=gem")  # the edit form ticks what the model has
+    assert re.search(r'name="role" checked value="CODER"', html) and re.search(r'checked value="EYES"', html)
+    assert not re.search(r'checked value="HAIKU"', html)
+    _, html = client.get("/models")
+    assert "OPUS, EYES, CODER" in html and "Roles (primary first)" in html
+    assert client.post("/models/save", {**form, "role": "TUTOR"})[0].status == 303  # a smaller set replaces it
+    assert set(db.get_model("gem")["roles"]) == {"OPUS", "TUTOR"}
+    assert client.post("/models/save", form)[0].status == 303  # nothing ticked: the primary alone
+    assert db.get_model("gem")["roles"] == ["OPUS"]
+    resp, html = client.post("/models/save", {**form, "role": "NOPE"})
+    assert resp.status == 400 and "unknown role" in html
 
 
 def test_classes_and_aliases_and_settings(client, env):

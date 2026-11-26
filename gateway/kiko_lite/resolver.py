@@ -233,6 +233,12 @@ class ModelInfo:
     error: str | None
 
 
+def has_role(info: "ModelInfo", cls: str) -> bool:
+    """True when the model serves class ``cls``: any of its roles (``roles``, primary first), or its ``model_class``
+    for a row read without roles."""
+    return cls in info.row.get("roles", (info.row["model_class"],))
+
+
 @dataclass
 class Snapshot:
     aliases: list[tuple[str, str]]
@@ -245,7 +251,7 @@ class Snapshot:
     def best(self, cls: str) -> ModelInfo | None:
         """Best enabled, mappable model of a class: status ok first, then unknown, by priority then id."""
         for status in ("ok", "unknown"):
-            hits = [m for m in self.models if m.mapped and m.row["enabled"] and m.row["model_class"] == cls
+            hits = [m for m in self.models if m.mapped and m.row["enabled"] and has_role(m, cls)
                     and m.row["status"] == status]
             if hits:
                 return min(hits, key=lambda m: (m.row["priority"], m.row["id"]))
@@ -254,7 +260,7 @@ class Snapshot:
     def ranked(self, cls: str) -> list[ModelInfo]:
         """All enabled, mappable models of a class, best first: ok, unknown, then error; priority, id inside."""
         rank = {"ok": 0, "unknown": 1}
-        hits = [m for m in self.models if m.mapped and m.row["enabled"] and m.row["model_class"] == cls]
+        hits = [m for m in self.models if m.mapped and m.row["enabled"] and has_role(m, cls)]
         return sorted(hits, key=lambda m: (rank.get(m.row["status"], 2), m.row["priority"], m.row["id"]))
 
 

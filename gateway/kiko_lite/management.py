@@ -149,7 +149,9 @@ class ManagementAPI:
     def models(self, req: Request) -> JsonResponse:
         out = []
         for r in self.db.models():
+            roles = r.get("roles") or [r.get("model_class") or "SONNET"]
             out.append({"name": r["alias"], "class": r.get("model_class") or "SONNET",
+                        "roles": roles, "roles_text": ", ".join(roles),
                         "enabled": bool(r.get("enabled")), "status": r.get("status") or "unknown",
                         "context_window": r.get("context_window"), "max_output": r.get("max_output")})
         return JsonResponse({"models": out})
@@ -173,6 +175,30 @@ class ManagementAPI:
         if not self.db.set_model_class(name, cls):
             return _err(404, "not_found", f"unknown model {name}")
         return JsonResponse({"name": name, "class": cls})
+
+    @_guarded
+    def set_roles(self, req: Request) -> JsonResponse:
+        """``POST /kiko/v1/models/{name}/roles`` ``{"roles": ["OPUS", "CODER"], "primary": "OPUS"?}``: replace the
+        roles of a model (at least one; the primary is kept when it is still listed, else the first)."""
+        name = req.params.get("name", "")
+        if not _NAME.fullmatch(name):
+            return _err(400, "bad_request", "invalid model name")
+        body = req.json()
+        roles = body.get("roles") if isinstance(body, dict) else None
+        primary = body.get("primary") if isinstance(body, dict) else None
+        if (not isinstance(roles, list) or not roles or len(roles) > 64
+                or not all(isinstance(x, str) and _CLASS.fullmatch(x) for x in roles)):
+            return _err(400, "bad_request", "roles must be a non-empty list of class names")
+        if primary is not None and not (isinstance(primary, str) and _CLASS.fullmatch(primary)):
+            return _err(400, "bad_request", "invalid primary class name")
+        try:
+            found = self.db.set_roles(name, roles, primary)
+        except ValueError as e:
+            return _err(400, "bad_request", str(e))
+        if not found:
+            return _err(404, "not_found", f"unknown model {name}")
+        row = self.db.get_model(name) or {}
+        return JsonResponse({"name": name, "class": row.get("model_class"), "roles": row.get("roles", [])})
 
     @_guarded
     def keys(self, req: Request) -> JsonResponse:
@@ -249,12 +275,13 @@ class ManagementAPI:
 
 def install(app: Any, db: Any, db_path: Path, port: int,
             env_file: Any | None = None, page: Any | None = None, token: str | None = None) -> ManagementAPI:
-    """Add the seven contract routes to ``app``. Returns the handler object (it holds the token)."""
+    """Add the contract routes to ``app``. Returns the handler object (it holds the token)."""
     api = ManagementAPI(db, db_path, port, token or token_for(Path(db_path)), env_file, page)
     app.route("GET", "/kiko/v1/status")(api.status)
     app.route("GET", "/kiko/v1/models")(api.models)
     app.route("GET", "/kiko/v1/classes")(api.classes)
     app.route("POST", "/kiko/v1/models/{name}/class")(api.set_class)
+    app.route("POST", "/kiko/v1/models/{name}/roles")(api.set_roles)
     app.route("GET", "/kiko/v1/keys")(api.keys)
     app.route("GET", "/kiko/v1/costs")(api.costs)
     app.route("GET", "/kiko/v1/logs")(api.logs)

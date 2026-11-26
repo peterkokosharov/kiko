@@ -431,11 +431,16 @@ def cmd_add_model(args: argparse.Namespace) -> int:
     p_cache = args.price_cache if args.price_cache is not None else (known[2] if known else None)
     db = _open(args, create=True)
     assert db is not None
+    roles = [x.strip().upper() for x in (args.role or "").split(",") if x.strip()] if args.role is not None else None
+    if args.role is not None and not roles:
+        return _err("--role needs at least one class (a model must keep at least one role)")
+    primary = args.model_class or (roles[0] if roles else "SONNET")  # --class = the primary role
     try:
-        new = db.upsert_model(args.alias, args.provider, args.api_key_env, args.api_base, args.model_class,
+        new = db.upsert_model(args.alias, args.provider, args.api_key_env, args.api_base, primary,
                               args.priority, p_in, p_out, p_cache, thinking=args.thinking,
                               timeout=args.timeout, toolshim=args.toolshim,
-                              context_window=args.context_window, max_output=args.max_output)
+                              context_window=args.context_window, max_output=args.max_output,
+                              roles=roles, display_name=args.display_name)
     except ValueError as e:
         return _err(str(e))
     print(f"kiko: {'added' if new else 'updated'} model '{args.alias}' in {db.path}")
@@ -531,6 +536,8 @@ def cmd_list_models(args: argparse.Namespace) -> int:
         if r.get("toolshim") == "on":
             think += "  toolshim=on"
         ctx = f"  ctx={fmt_tokens(r.get('context_window'))}/{fmt_tokens(r.get('max_output'))}"
+        if len(r.get("roles") or ()) > 1:
+            ctx += "  roles=" + ",".join(r["roles"])
         print(f"  {r['alias']:<28} {r['model_class']:<7} prio {r['priority']:<4} {r['status']:<8} "
               f"{'on ' if r['enabled'] else 'OFF'} {target}  key={key}{ctx}{think}")
     for glob, target in db.aliases():
@@ -834,8 +841,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--api-key-env", required=True, metavar="NAME", help="NAME of the API key (not the key)")
     s.add_argument("--api-base", metavar="URL",
                    help=f"own API base (https); refused for {ptable.fixed_base_hint()}, whose base kiko fixes")
-    s.add_argument("--class", dest="model_class", type=_class, default="SONNET", metavar="CLASS",
-                   help="a class from list-classes (default SONNET)")
+    s.add_argument("--class", dest="model_class", type=_class, default=None, metavar="CLASS",
+                   help="the PRIMARY class from list-classes (default: the first --role, else SONNET)")
+    s.add_argument("--role", metavar="A,B,C",
+                   help="all classes (roles) the model serves, comma separated, e.g. OPUS,CODER,EYES; the primary "
+                        "(--class, else the first one) is always included; a model keeps at least one role; "
+                        "kept when omitted")
+    s.add_argument("--display-name", metavar="TEXT",
+                   help="human name for the catalog export, e.g. \"Anthropic Opus 5.5\" (kept when omitted; empty clears)")
     s.add_argument("--priority", type=int, default=100)
     s.add_argument("--price-in", type=float, metavar="USD_PER_MTOK")
     s.add_argument("--price-out", type=float, metavar="USD_PER_MTOK")

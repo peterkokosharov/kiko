@@ -63,8 +63,9 @@ def fmt_tokens(n: Any) -> str:
 
 
 def model_rows(status: dict[str, Any]) -> list[tuple[str, ...]]:
-    """alias, target, class, enabled, context, max out, key name, key found (never a value), health, last check, state."""
-    return [(m.get("alias", "?"), m.get("target") or "", m.get("class") or "", "yes" if m.get("enabled") else "no",
+    """alias, target, roles (primary first; the class when the server sends no roles), enabled, context, max out,
+    key name, key found (never a value), health, last check, state."""
+    return [(m.get("alias", "?"), m.get("target") or "", m.get("roles_text") or m.get("class") or "", "yes" if m.get("enabled") else "no",
              fmt_tokens(m.get("context_window")), fmt_tokens(m.get("max_output")),
              m.get("key_name") or "", m.get("key_found") or "", m.get("mapping_error") or m.get("health") or "",
              m.get("last_check") or "", m.get("state") or "off") for m in _items(status, "models")]

@@ -95,7 +95,7 @@ def db(tmp_path):
 
 def test_fresh_db_created_with_all_tables_and_version(tmp_path):
     d = kdb.Database(tmp_path / "sub" / "kiko.db")
-    assert d.path.exists() and d.schema_version() == 9  # the one literal pin: bump it with the schema
+    assert d.path.exists() and d.schema_version() == 10  # the one literal pin: bump it with the schema
     con = sqlite3.connect(d.path)
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"billing", "models", "responses", "aliases", "settings"} <= tables
@@ -721,7 +721,7 @@ def test_v9_migrates_a_v8_db_and_adds_context_columns(tmp_path):
     con.commit()
     con.close()
     d2 = kdb.Database(p)
-    assert d2.schema_version() == 9 and {"context_window", "max_output"} <= cols(p, "models")
+    assert d2.schema_version() == kdb.SCHEMA_VERSION and {"context_window", "max_output"} <= cols(p, "models")
     row = d2.get_model("m")
     assert row["context_window"] is None and row["max_output"] is None  # unknown, data untouched
 

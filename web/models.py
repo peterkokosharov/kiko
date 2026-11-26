@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+from urllib.parse import parse_qs
 from typing import Any
 
 from kiko_lite import app as lite
@@ -92,6 +93,7 @@ def row_to_form(row: dict[str, Any], providers: list[dict[str, Any]]) -> dict[st
 def register(ui) -> None:  # ui: web.ui.WebUI
     def form_page(sess, values: dict[str, Any], is_new: bool, status: int = 200):
         classes = [c["name"] for c in ui.db.classes()]
+        picked = set(values.get("roles") or [values.get("model_class") or "SONNET"])
         providers = ui.db.list_providers()
         names = [p["name"] for p in providers]
         env_file = dotenv_values(ui.db.path)
@@ -120,7 +122,9 @@ def register(ui) -> None:  # ui: web.ui.WebUI
             r.field("Model ID (for example gemini-3.8-flash; the provider is added in front)", "model_id",
                     v("model_id"), required=True, list_="model-ids", placeholder="gemini-3.8-flash"),
             r.tag("datalist", *[r.tag("option", "", value=i) for i in known_model_ids(ui.db)], id="model-ids"),
-            r.select("Class", "model_class", classes, v("model_class") or "SONNET"),
+            r.select("Primary class (shown in lists)", "model_class", classes, v("model_class") or "SONNET"),
+            r.tag("fieldset", r.tag("legend", "Roles (every class this model serves; the primary class is always one)"),
+                  *[r.checkbox(c, "role", c in picked, value=c) for c in classes]),
             used,
             r.tag("details", r.tag("summary", "Override the provider's API base and key name (optional)"),
                   r.tag("p", f"The API base is fixed by kiko for {ptable.fixed_base_hint()}; an override is "
@@ -161,12 +165,12 @@ def register(ui) -> None:  # ui: web.ui.WebUI
                 r.inline_post("/models/toggle", sess.csrf, "Disable" if m["enabled"] else "Enable", "secondary",
                               alias=alias),
                 r.inline_post("/models/delete", sess.csrf, "Delete", "danger", alias=alias)])
-            rows.append([alias, m["provider"], m["model_class"], m["priority"], "yes" if m["enabled"] else "no",
+            rows.append([alias, m["provider"], ", ".join(m.get("roles") or [m["model_class"]]), m["priority"], "yes" if m["enabled"] else "no",
                          m["status"], fmt_tokens(m.get("context_window")), fmt_tokens(m.get("max_output")),
                          m.get("thinking") or "default", m.get("toolshim") or "off",
                          f"{fmt_timeout(m.get('timeout'))} s" if fmt_timeout(m.get("timeout")) else "", _key_cell(m["api_key_env"], env_file), actions])
         body = r.join([r.tag("p", r.link("Add model", "/models/new", class_="button")),
-                       r.table(["Alias", "Provider", "Class", "Priority", "Enabled", "Status", "Context", "Max out", "Thinking", "Toolshim", "Timeout", "API key", ""], rows)])
+                       r.table(["Alias", "Provider", "Roles (primary first)", "Priority", "Enabled", "Status", "Context", "Max out", "Thinking", "Toolshim", "Timeout", "API key", ""], rows)])
         return ui.render(sess, "Models", body, "/models")
 
     @ui.get("/models/new")
@@ -215,6 +219,8 @@ def register(ui) -> None:  # ui: web.ui.WebUI
                 raise ValueError(str(e)) from None
             if not lite.valid_model_id(mapped.model_id, str(mapped.entry.get("kind", "openai"))):
                 raise ValueError("the model id has characters that are not allowed")
+            roles = parse_qs(req.body.decode("utf-8"), keep_blank_values=True, max_num_fields=100).get("role", [])
+            roles = roles or [form.get("model_class", "SONNET")]  # nothing ticked: the primary class alone
             created = ui.db.upsert_model(
                 alias, stored, key, base, form.get("model_class", "SONNET"),
                 int(form.get("priority") or 100), _num(form.get("price_in_per_mtok", "")),
@@ -222,10 +228,13 @@ def register(ui) -> None:  # ui: web.ui.WebUI
                 "enabled" in form, thinking=form.get("thinking", "default") or "default",
                 timeout=form.get("timeout", "").strip() or "default",
                 toolshim=form.get("toolshim", "off") or "off",
-                context_window=_tokens(form.get("context_window", "")), max_output=_tokens(form.get("max_output", "")))  # empty clears
+                context_window=_tokens(form.get("context_window", "")), max_output=_tokens(form.get("max_output", "")),  # empty clears
+                roles=roles)
         except (ValueError, TypeError) as e:
             sess.flash("error", str(e))
-            values = {**form, "enabled": "enabled" in form}
+            values = {**form, "enabled": "enabled" in form,
+                      "roles": parse_qs(req.body.decode("utf-8", "replace"), keep_blank_values=True,
+                                        max_num_fields=100).get("role", [])}
             return form_page(sess, values, ui.db.get_model(alias) is None, 400)
         sess.flash("ok", f"Model {alias} {'added' if created else 'saved'}.")
         return redirect("/models")
