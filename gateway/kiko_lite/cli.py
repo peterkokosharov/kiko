@@ -580,7 +580,8 @@ def cmd_import_models(args: argparse.Namespace) -> int:
         data = Path(args.xml).read_bytes()
     except OSError as e:
         return _err(f"cannot read {args.xml}: {e}")
-    return catalog_xml.run_import(default_path(args.db), data, dry_run=args.dry_run, pinger=catalog_xml.ping_model)
+    return catalog_xml.run_import(default_path(args.db), data, dry_run=args.dry_run,
+                                  allow_retarget=args.allow_retarget, pinger=catalog_xml.ping_model)
 
 
 def cmd_set_thinking(args: argparse.Namespace) -> int:
@@ -917,6 +918,8 @@ def build_parser() -> argparse.ArgumentParser:
             "upsert models from a catalog XML file (all or nothing; new models start disabled)")
     s.add_argument("--xml", metavar="FILE", required=True, help="catalog file written by export-models --xml")
     s.add_argument("--dry-run", action="store_true", help="show what would be added / changed, write nothing")
+    s.add_argument("--allow-retarget", action="store_true",
+                   help="also re-point existing models (name, key or api_base changed); they are left disabled")
     add("list-classes", cmd_list_classes, "list model classes (name, keyword, role, enabled models)")
     s = add("add-class", cmd_add_class, "add a model class (detected by KEYWORD in the requested model name)")
     s.add_argument("name", help="upper-case, e.g. VOICE")

@@ -207,11 +207,15 @@ and upserts models by alias (`<model id="...">`):
   the first, is the primary), context, max output, price (`free` = a free-tier provider with no price; empty = unknown, kept as is), priority,
   thinking, timeout, toolshim, and the human name (`<alias>` text when it differs from the id). Empty context /
   price in the file keep the database value. The `enabled` flag and the health `status` of an EXISTING model are never
-  changed by an import.
+  changed by an import, except for a re-pointed one (below).
+* **Re-pointing is refused.** If the name, key or api_base of an EXISTING model would change, the import stops with
+  exit 2 and writes nothing (also with `--dry-run`); `--allow-retarget` applies it and leaves that model disabled.
+  An `<api_base>` on a fixed-base provider (gemini, nvidia, ...) is refused, as in `add-model`. Files must be UTF-8
+  (UTF-16 / UTF-32 and NUL bytes are refused).
 * **New models are added disabled** unless the file says `enabled="true"` AND the model answers a ping through the
   running kiko (a tiny `/v1/messages` call to `127.0.0.1:<port>`): it is enabled for the ping, then stays enabled with
   status ok, or is switched off again with status error. With kiko not running the ping fails and the model stays
-  disabled.
+  disabled. A model whose file gives a non-loopback `<api_base>` is never enabled or pinged by the import.
 * Round trip: export, import into an empty database (every pinged model answers), export again gives byte-identical
   XML (covered by a test). Health `status` is operational state and is not carried by the file.
 

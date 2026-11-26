@@ -33,18 +33,22 @@ import re
 import sqlite3
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from xml.parsers import expat
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from kikolib import config as kconfig
+from kikolib import posix
 
 from . import app as lite
-from .db import CLASSES, THINKING_MODES, Database, check_timeout
-from .resolver import MappingError, check_api_base, custom_provider_names, key_name_problem, map_row, show_name
+from . import providers as ptable
+from .db import CLASSES, THINKING_MODES, Database, check_timeout, ro_uri
+from .resolver import _LOCAL, MappingError, check_api_base, custom_provider_names, key_name_problem, map_row, show_name
 
 FORMAT_VERSION = "1"
 # Providers whose models are served without a price (the free tier): their rows read "free" even while the price
@@ -130,6 +134,10 @@ def export_xml(rows: list[dict[str, Any]]) -> bytes:
 # ---- import -----------------------------------------------------------------------------------------------
 
 MAX_FILE_BYTES = 2_000_000
+
+
+class _Declaration(Exception):
+    """Raised by the XML parser on a DOCTYPE / ENTITY declaration."""
 KEY_NAME = re.compile(r"[A-Z][A-Z0-9_]{0,63}\Z")  # an UPPER_SNAKE environment variable NAME
 ALIAS = re.compile(r"[A-Za-z0-9._:-]{1,128}\Z")
 CLASS = re.compile(r"[A-Z][A-Z0-9_]{0,31}\Z")
@@ -241,6 +249,12 @@ def _parse_model(el: ET.Element, classes: Collection[str], custom: Collection[st
         except ValueError as e:
             errors.append(f"<api_base>: {e}")
             base = None
+        else:
+            fixed = ptable.fixed_base_provider(name.partition("/")[0]) if "/" in name else None
+            if fixed:  # the same rule as add-model and the web form
+                errors.append(f"<api_base>: kiko fixes the API base for {fixed}; leave <api_base> out "
+                              "(an override is only used for openai and for providers you added yourself)")
+                base = None
     if "name" in kids and not name:
         errors.append("<name> is empty")
     elif name and key:
@@ -340,9 +354,26 @@ def parse_catalog(data: bytes, classes: Collection[str],
         return [], [f"file is larger than {MAX_FILE_BYTES // 1_000_000} MB"]
     if re.search(rb"<!(?:DOCTYPE|ENTITY)", data, re.I):
         return [], ["DOCTYPE and ENTITY declarations are not allowed"]
+    if b"\x00" in data or data.startswith((b"\xff\xfe", b"\xfe\xff", b"\x00\x00\xfe\xff")):
+        return [], ["UTF-16 / UTF-32 files are not allowed; save the file as UTF-8"]
+    # expat directly (the C ElementTree parser hides its handlers): a DOCTYPE or ENTITY declaration raises
+    builder = ET.TreeBuilder()
+    parser = expat.ParserCreate()
+
+    def _refuse(*_a: Any) -> None:
+        raise _Declaration
+
+    parser.StartDoctypeDeclHandler = _refuse  # belt and braces behind the byte check above
+    parser.EntityDeclHandler = _refuse
+    parser.StartElementHandler = builder.start
+    parser.EndElementHandler = builder.end
+    parser.CharacterDataHandler = builder.data
     try:
-        root = ET.fromstring(data)
-    except ET.ParseError as e:
+        parser.Parse(data, True)
+        root = builder.close()
+    except _Declaration:
+        return [], ["DOCTYPE and ENTITY declarations are not allowed"]
+    except (expat.ExpatError, ET.ParseError, AssertionError) as e:
         return [], [f"not well-formed XML: {e}"]
     errors: list[str] = []
     if root.tag != "kiko-models":
@@ -416,14 +447,26 @@ def plan_changes(existing: Mapping[str, Mapping[str, Any]], entries: list[Entry]
     return out
 
 
+RETARGET = ("name", "key", "api_base")  # changes that point an existing model at another upstream or key
+
+
+def retargets(c: Change) -> list[str]:
+    return [d for d in c.diffs if d in RETARGET] if c.action == "changed" else []
+
+
+def remote_base(base: str | None) -> bool:
+    """True for an api_base that is not on this machine (a model the file points at another host)."""
+    return bool(base) and (urllib.parse.urlsplit(base).hostname or "").lower() not in _LOCAL
+
+
 def upsert_args(c: Change, row: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """The ``Database.upsert_models`` item for one change. New models are added disabled; existing ones keep
-    ``enabled`` and their health status."""
+    ``enabled`` and their health status, except a retargeted one (name, key or api_base changed): it is disabled."""
     e = c.entry
     pi, po, pc = _wanted_prices(e, row)
     return dict(alias=e.alias, provider=e.provider, api_key_env=e.key, api_base=e.api_base,
                 model_class=e.primary, priority=e.priority, price_in=pi, price_out=po, price_cache=pc,
-                enabled=False if c.action == "added" else None, thinking=e.thinking or "default",
+                enabled=False if c.action == "added" or retargets(c) else None, thinking=e.thinking or "default",
                 timeout=e.timeout if e.timeout is not None else "default", toolshim=e.toolshim or "off",
                 context_window=e.context, max_output=e.max_output, roles=e.roles,
                 display_name=e.display_name or "")
@@ -432,8 +475,9 @@ def upsert_args(c: Change, row: Mapping[str, Any] | None = None) -> dict[str, An
 def backup_database(path: Path, tag: str = "import") -> Path:
     """Copy the database next to itself (``kiko.db.bak-YYYYMMDD-HHMMSS-import``) with the SQLite backup API."""
     target = path.with_name(f"{path.name}.bak-{time.strftime('%Y%m%d-%H%M%S')}-{tag}")
-    src = sqlite3.connect(f"file:{path.resolve().as_posix()}?mode=ro", uri=True)
+    src = sqlite3.connect(ro_uri(path.resolve()), uri=True)
     try:
+        os.close(os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0), 0o600))
         dst = sqlite3.connect(target)
         try:
             src.backup(dst)
@@ -441,6 +485,7 @@ def backup_database(path: Path, tag: str = "import") -> Path:
             dst.close()
     finally:
         src.close()
+    posix.make_private(target)
     return target
 
 
@@ -463,16 +508,19 @@ def ping_model(alias: str, timeout: float = 40.0) -> tuple[bool, str]:
         return False, type(e).__name__
 
 
-def run_import(db_path: Path, data: bytes, *, dry_run: bool = False,
+def run_import(db_path: Path, data: bytes, *, dry_run: bool = False, allow_retarget: bool = False,
                pinger: Callable[[str], tuple[bool, str]] | None = None,
                say: Callable[[str], None] = print, settle: float = 2.5) -> int:
     """Import a catalog file. 0 = done (or a clean dry run), 2 = the file or the database refused it (nothing written).
 
     All errors of the file are reported before anything is written; the write is ONE transaction; a real write into
     an existing database is preceded by a timestamped backup. A new model is disabled unless its ``enabled="true"``
-    is confirmed by a ping through kiko (``pinger``)."""
+    is confirmed by a ping through kiko (``pinger``), never when its file points it at a non-loopback api_base.
+    An existing model whose name, key or api_base would change is refused unless ``allow_retarget``; then it is
+    changed and left disabled. The database is opened read-only until the plan is known; the backup comes before
+    the first writable open."""
     exists = db_path.exists()
-    db: Database | None = Database(db_path, readonly=dry_run) if exists else None  # a new file only after the check
+    db: Database | None = Database(db_path, readonly=True) if exists else None  # a new file only after the check
     classes = db.class_names() if db is not None else list(CLASSES)
     existing = {r["alias"]: r for r in db.models()} if db is not None else {}
     custom = custom_provider_names(db) if db is not None else frozenset()
@@ -493,31 +541,49 @@ def run_import(db_path: Path, data: bytes, *, dry_run: bool = False,
     counts = {a: sum(1 for c in changes if c.action == a) for a in sym}
     say(f"kiko: {counts['added']} added, {counts['changed']} changed, {counts['unchanged']} unchanged"
         + (" (dry run, nothing written)" if dry_run else ""))
+    moved = [c for c in changes if retargets(c)]
+    for c in moved:
+        say(f"kiko: {c.entry.alias}: would be re-pointed ({', '.join(retargets(c))} change)"
+            + ("; it will be left DISABLED" if allow_retarget else "; refused without --allow-retarget"))
+    if moved and not allow_retarget:
+        say("kiko: nothing was written; check the file, then repeat with --allow-retarget to re-point "
+            "existing models (they are left disabled)")
+        return 2
     todo = [c for c in changes if c.action != "unchanged"]
     if dry_run or not todo:
         return 0
-    if db is None:
-        db = Database(db_path)
-    if exists and existing:
-        say(f"kiko: backup {backup_database(db_path).name}")
+    if exists:
+        say(f"kiko: backup {backup_database(db_path).name}")  # before the first writable open
+    db = Database(db_path)
     try:
         db.upsert_models([upsert_args(c, existing.get(c.entry.alias)) for c in todo])  # one transaction: all or nothing
     except ValueError as e:
         say(f"kiko: the database refused the import ({e}); nothing was written")
         return 2
-    wants = [c.entry.alias for c in todo if c.action == "added" and c.entry.enabled]
+    asked = [c for c in todo if c.action == "added" and c.entry.enabled]
+    for c in asked:
+        if remote_base(c.entry.api_base):
+            say(f"kiko: {c.entry.alias}: not enabled and not pinged: its file points it at {c.entry.api_base} "
+                f"(not this machine); check it, then enable-model {c.entry.alias}")
+    wants = [c.entry.alias for c in asked if not remote_base(c.entry.api_base)]
     if wants:
         ping = pinger or ping_model
-        for alias in wants:  # a ping goes through the gateway, which only serves enabled models
-            db.set_enabled(alias, True)
-        time.sleep(settle)  # the gateway's catalog is cached for a moment
-        for alias in wants:
-            ok, note = ping(alias)
-            if ok:
-                db.set_status(alias, "ok")
-                say(f"kiko: {alias}: ping ok ({note}); enabled")
-            else:
-                db.set_enabled(alias, False)
-                db.set_status(alias, "error")
-                say(f"kiko: {alias}: ping failed ({note}); left DISABLED (enable-model {alias} once it works)")
+        confirmed: set[str] = set()
+        try:
+            for alias in wants:  # a ping goes through the gateway, which only serves enabled models
+                db.set_enabled(alias, True)
+            time.sleep(settle)  # the gateway's catalog is cached for a moment
+            for alias in wants:
+                ok, note = ping(alias)
+                if ok:
+                    db.set_status(alias, "ok")
+                    confirmed.add(alias)
+                    say(f"kiko: {alias}: ping ok ({note}); enabled")
+                else:
+                    db.set_status(alias, "error")
+                    say(f"kiko: {alias}: ping failed ({note}); left DISABLED (enable-model {alias} once it works)")
+        finally:  # an error or Ctrl-C must never leave an un-pinged model enabled
+            for alias in wants:
+                if alias not in confirmed:
+                    db.set_enabled(alias, False)
     return 0

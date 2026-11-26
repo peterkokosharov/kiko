@@ -100,17 +100,17 @@ def test_import_by_alias_updates_and_keeps_enabled_and_status(tmp_path):
     a = src_db(tmp_path)
     target = tmp_path / "t" / "kiko.db"
     b = kdb.Database(target)
-    b.upsert_model("opus", "old/provider", "OLD_KEY", model_class="SONNET", enabled=False, status="error",
+    b.upsert_model("opus", "old/provider", "OLD_KEY", model_class="SONNET", enabled=True, status="error",
                    price_in=9, price_out=9, thinking="on")
     out = []
     assert catalog_xml.run_import(target, catalog_xml.export_xml(a.models()), pinger=good_pinger, say=collect(out),
-                                  settle=0) == 0
+                                  settle=0, allow_retarget=True) == 0
     row = kdb.Database(target).get_model("opus")
     assert (row["provider"], row["api_key_env"], row["model_class"]) == ("cgw/opus", "CGW_TOKEN", "OPUS")
     assert row["roles"] == ["OPUS", "EYES", "CODER"] and row["display_name"] == "Anthropic Opus 5.5"
     assert (row["price_in_per_mtok"], row["context_window"], row["max_output"]) == (4.0, 1_000_000, 128_000)
     assert row["thinking"] is None  # the file has none: back to default
-    assert (row["enabled"], row["status"]) == (0, "error")  # operational state is the database's own
+    assert (row["enabled"], row["status"]) == (0, "error")  # re-pointed: disabled; status is the database's own
     assert len(list(target.parent.glob("kiko.db.bak-*-import"))) == 1  # backed up before the write
     # a second import is all "unchanged": no write, no second backup
     out.clear()
@@ -271,3 +271,88 @@ def test_free_on_a_normal_provider_is_stored_zero_and_settles(tmp_path):
     out = []
     assert catalog_xml.run_import(target, data, dry_run=True, say=collect(out)) == 0
     assert "0 added, 0 changed, 1 unchanged" in out[-1], out
+
+
+def test_retargeting_an_existing_model_is_refused_without_the_flag(tmp_path):
+    a = src_db(tmp_path)
+    target = tmp_path / "t" / "kiko.db"
+    b = kdb.Database(target)
+    b.upsert_model("opus", "old/provider", "OLD_KEY", model_class="SONNET", enabled=True, status="ok")
+    before = snapshot(target)
+    out = []
+    assert catalog_xml.run_import(target, catalog_xml.export_xml(a.models()), pinger=good_pinger, say=collect(out),
+                                  settle=0) == 2
+    assert any("refused without --allow-retarget" in line for line in out)
+    assert snapshot(target) == before and not list(target.parent.glob("*.bak-*"))
+    out.clear()  # a dry run refuses too, so the owner sees it before the real run
+    assert catalog_xml.run_import(target, catalog_xml.export_xml(a.models()), dry_run=True, say=collect(out)) == 2
+
+
+def test_api_base_on_a_fixed_base_provider_is_refused(tmp_path):
+    out = []
+    xml = doc(model(name="gemini/gemini-3.5-flash-lite").replace(
+        "<key>", "<api_base>https://example.org/v1</api_base>\n    <key>"))
+    assert catalog_xml.run_import(tmp_path / "t" / "kiko.db", xml, say=collect(out)) == 2
+    assert any("kiko fixes the API base for gemini" in line for line in out)
+    assert not (tmp_path / "t").exists()
+
+
+def test_enabled_model_with_a_remote_api_base_is_not_enabled_or_pinged(tmp_path):
+    seen = []
+    xml = doc(model(id="far", enabled="true", name="cgw/far").replace(
+        "<key>", "<api_base>https://example.org/v1</api_base>\n    <key>"),
+        model(id="near", enabled="true", name="cgw/near").replace(
+        "<key>", "<api_base>http://127.0.0.1:4100/v1</api_base>\n    <key>"))
+    out = []
+    target = tmp_path / "t" / "kiko.db"
+    assert catalog_xml.run_import(target, xml, pinger=lambda a: (seen.append(a), (True, "ok"))[1],
+                                  say=collect(out), settle=0) == 0
+    rows = {r["alias"]: r for r in kdb.Database(target).models()}
+    assert seen == ["near"] and (rows["far"]["enabled"], rows["near"]["enabled"]) == (0, 1)
+    assert any("far: not enabled and not pinged" in line for line in out)
+
+
+def test_a_crash_while_pinging_leaves_nothing_enabled(tmp_path):
+    def boom(alias):
+        raise KeyboardInterrupt
+    target = tmp_path / "t" / "kiko.db"
+    with pytest.raises(KeyboardInterrupt):
+        catalog_xml.run_import(target, doc(model(enabled="true")), pinger=boom, say=collect([]), settle=0)
+    assert kdb.Database(target).get_model("m1")["enabled"] == 0
+
+
+@pytest.mark.parametrize("data", [
+    "\ufeff".encode("utf-16"), doc(model()).decode().encode("utf-16"), doc(model()).decode().encode("utf-32"),
+    doc(model())[:-5] + bytes([0]) + b"\n"])
+def test_utf16_32_and_nul_bytes_are_refused(data):
+    entries, errors = catalog_xml.parse_catalog(data, list(kdb.CLASSES))
+    assert errors and not entries
+
+
+def test_a_doctype_or_entity_never_reaches_the_parser():
+    for decl in ('<!DOCTYPE kiko-models [<!ENTITY x "y">]>', '<!DOCTYPE kiko-models>', '<!ENTITY x "y">'):
+        data = doc(model()).replace(b"<kiko-models", decl.encode() + b"<kiko-models", 1)
+        entries, errors = catalog_xml.parse_catalog(data, list(kdb.CLASSES))
+        assert errors == ["DOCTYPE and ENTITY declarations are not allowed"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+def test_the_backup_is_private(tmp_path):
+    d = src_db(tmp_path)
+    bak = catalog_xml.backup_database(d.path)
+    assert bak.stat().st_mode & 0o077 == 0
+
+
+def test_backup_also_when_the_database_has_no_models(tmp_path):
+    target = tmp_path / "t" / "kiko.db"
+    kdb.Database(target)  # exists, empty
+    out = []
+    assert catalog_xml.run_import(target, doc(model()), say=collect(out), settle=0) == 0
+    assert len(list(target.parent.glob("kiko.db.bak-*-import"))) == 1
+
+
+def test_the_backup_works_for_a_path_with_special_characters(tmp_path):
+    d = kdb.Database(tmp_path / "a b#c%d" / "kiko.db")
+    d.upsert_model("m", "gemini/x", "GEMINI_API_KEY")
+    bak = catalog_xml.backup_database(d.path)
+    assert kdb.Database(bak, readonly=True).get_model("m")
