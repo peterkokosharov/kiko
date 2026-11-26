@@ -24,6 +24,7 @@ kwallet-query read the value from stdin. kwallet-query cannot delete entries.
 
 from __future__ import annotations
 
+import math
 import os
 import shutil
 import subprocess
@@ -47,7 +48,7 @@ def timeout_seconds() -> float:
         v = float(os.environ.get(TIMEOUT_ENV, ""))
     except ValueError:
         return DEFAULT_TIMEOUT
-    return v if v > 0 and v == v and v != float("inf") else DEFAULT_TIMEOUT
+    return v if v > 0 and math.isfinite(v) else DEFAULT_TIMEOUT
 
 
 def timeout_count() -> int:

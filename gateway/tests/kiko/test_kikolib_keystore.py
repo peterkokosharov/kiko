@@ -268,3 +268,9 @@ def test_other_failures_are_not_counted_as_timeouts(monkeypatch):
     before = keystore.timeout_count()
     assert keystore.SecretToolStore().get("x") is None
     assert keystore.timeout_count() == before
+
+
+def test_timeout_rejects_nan_and_inf(monkeypatch):
+    for bad in ("nan", "inf", "-inf", "0", "-3"):
+        monkeypatch.setenv("KIKO_KEYSTORE_TIMEOUT", bad)
+        assert keystore.timeout_seconds() == keystore.DEFAULT_TIMEOUT
