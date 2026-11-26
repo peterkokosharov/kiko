@@ -449,16 +449,15 @@ def cmd_add_model(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_list_classes(args: argparse.Namespace) -> int:
+def cmd_list_classes(args: argparse.Namespace) -> None:
     db = _open(args, readonly=True)
     if db is None:
-        return 0
+        return
     _unmigrated_note(db)
     print(f"Model classes in {db.path}:")
     print(f"  {'NAME':<14} {'KEYWORD':<14} {'MODELS':>6}  ROLE")
     for c in db.classes():
         print(f"  {c['name']:<14} {c['keyword']:<14} {c['models']:>6}  {c['role']}")
-    return 0
 
 
 def cmd_add_class(args: argparse.Namespace) -> int:
@@ -473,16 +472,15 @@ def cmd_add_class(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_list_providers(args: argparse.Namespace) -> int:
+def cmd_list_providers(args: argparse.Namespace) -> None:
     db = _open(args, readonly=True)
     if db is None:
-        return 0
+        return
     _unmigrated_note(db)
     print(f"Providers in {db.path}:")
     print(f"  {'NAME':<12} {'MODELS':>6}  {'KEY NAME':<20} API BASE")
     for p in db.list_providers():
         print(f"  {p['name']:<12} {p['models']:>6}  {show_name(p['api_key_env']):<20} {p['api_base']}")
-    return 0
 
 
 def cmd_add_provider(args: argparse.Namespace) -> int:
@@ -515,10 +513,10 @@ def cmd_delete_provider(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_list_models(args: argparse.Namespace) -> int:
+def cmd_list_models(args: argparse.Namespace) -> None:
     db = _open(args, readonly=True)
     if db is None:
-        return 0
+        return
     _unmigrated_note(db)
     models = db.models()
     print(f"Models in {db.path}:" if models else f"No models in {db.path}")
@@ -544,7 +542,6 @@ def cmd_list_models(args: argparse.Namespace) -> int:
         print(f"  alias {glob} -> {target}")
     for k, v in db.settings().items():
         print(f"  setting {k} = {v}")
-    return 0
 
 
 def cmd_export_models(args: argparse.Namespace) -> int:
@@ -726,16 +723,16 @@ def _finish_wipe(db: Database) -> int:
     return _wipe_blocked()
 
 
-def cmd_costs(args: argparse.Namespace) -> int:
+def cmd_costs(args: argparse.Namespace) -> None:
     db = _open(args, readonly=True)
     if db is None:
-        return 0
+        return
     _unmigrated_note(db)
     rows = db.billing_summary(args.days)
     probes, probe_cost = db.probe_summary(args.days)
     if not rows and not probes:
         print(f"No billing data in {db.path} for the last {args.days} day(s)")
-        return 0
+        return
     col = f"{'Model':<35} {'Calls':>6} {'Errors':>6} {'Tokens In':>10} {'Tokens Out':>11} {'Cost USD':>12}"
     print(f"Cost summary - last {args.days} day(s)  [{db.path}]")
     print(col)
@@ -750,10 +747,9 @@ def cmd_costs(args: argparse.Namespace) -> int:
     if probes:  # background health checks, kept out of the table above (they count toward the monthly cap)
         print(f"  {'Health probes (background)':<33} {probes:>6} {'':>6} {'':>10} {'':>11} {probe_cost:>12.6f}")
         print(f"  {'TOTAL incl. probes':<33} {'':>6} {'':>6} {'':>10} {'':>11} {total + probe_cost:>12.6f}")
-    return 0
 
 
-def cmd_doctor(args: argparse.Namespace) -> int:
+def cmd_doctor(args: argparse.Namespace) -> None:
     path = default_path(args.db)
     env_file = _dotenv_values(path)
     warnings = 0
@@ -779,7 +775,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     if not path.exists():
         print(f"Database: {path} (does not exist yet; created by serve / import / add-model)")
         print(f"\n{warnings} warning(s)")
-        return 0
+        return
     db = Database(path, readonly=True)  # doctor never modifies a DB
     models = db.models()
     print(f"Database: {path}  schema version {db.schema_version()} (kiko-lite {SCHEMA_VERSION})  "
@@ -838,7 +834,6 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         print(f"      price: {'known' if has_price else 'UNKNOWN (cost recorded as 0)'}")
         warnings += not has_price
     print(f"\n{warnings} warning(s)")
-    return 0
 
 
 # ---- parser -----------------------------------------------------------------------------------------
