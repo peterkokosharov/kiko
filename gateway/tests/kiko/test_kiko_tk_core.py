@@ -110,7 +110,7 @@ def test_state_and_icon_mapping():
 def test_panel_shaping():
     assert ("uptime", "1 h 1 min") in model.server_rows(STATUS)
     rows = model.model_rows(STATUS)
-    assert rows[0][:4] == ("a", "p/a", "HAIKU", "yes") and rows[1][3] == "no" and rows[1][5] == "NOT FOUND"
+    assert rows[0][:4] == ("a", "p/a", "HAIKU", "yes") and rows[1][3] == "no" and rows[1][7] == "NOT FOUND"
     reqs = model.request_rows(STATUS)
     assert reqs[0] == ("ok", "t1", "m > u", "messages", "12 ms", "")
     assert reqs[1][0] == "ERR" and reqs[1][4] == "" and reqs[1][5] == "boom"

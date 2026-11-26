@@ -81,7 +81,8 @@ class Chain(unittest.TestCase):
         """A kiko_chain.py stand-in: run mode writes data/chain.pid and waits; --stop kills that pid."""
         s = Path(td) / "kiko_chain.py"
         s.write_text(FAKE_CHAIN, encoding="utf-8")
-        return core.Config(python=sys.executable, chain=str(s), port=1)
+        # a venv python.exe on Windows is a launcher that spawns the real interpreter, so Popen.pid would differ from the pid the script writes
+        return core.Config(python=getattr(sys, "_base_executable", sys.executable), chain=str(s), port=1)
 
     def wait_pidfile(self, cfg, pid):
         for _ in range(100):
