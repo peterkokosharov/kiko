@@ -529,6 +529,6 @@ def resolved(args_db: str | os.PathLike[str] | None = None,
     for n in SERVERS:
         out[f"{n}_host"] = server_host(n, cfg)
         out[f"{n}_port"] = server_port(n, cfg)
-    out["anthropic_base_url"] = f"http://{out['proxy_host']}:{out['proxy_port']}"
+    out["anthropic_base_url"] = f"http://{out['proxy_host']}:{out['proxy_port']}"  # NOSONAR - local proxy listener (loopback by default), no TLS termination in kiko
     out["settings"] = {s.name: value(s.name, cfg, db_settings) for s in SETTINGS}
     return out

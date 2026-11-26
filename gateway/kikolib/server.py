@@ -478,7 +478,7 @@ class _Handler(BaseHTTPRequestHandler):
                 app = self.server.app
                 own = ((app.allow_same_origin or (req.method == "GET" and any(
                            req.path == p or req.path.startswith(p.rstrip("/") + "/") for p in app.same_origin_paths)))
-                       and host is not None and h["origin"].strip().lower() == f"http://{host.strip().lower()}")
+                       and host is not None and h["origin"].strip().lower() == f"http://{host.strip().lower()}")  # NOSONAR - same-origin string comparison, no connection; listener is loopback http
                 if not own:
                     raise HTTPError(403, "permission_error", "browser requests (Origin header) are not allowed")
             if host is None:
@@ -622,7 +622,7 @@ class Server:
 
     @property
     def url(self) -> str:
-        return f"http://{self.host}:{self.port}"
+        return f"http://{self.host}:{self.port}"  # NOSONAR - own listener URL, loopback by default
 
     def serve_forever(self) -> None:
         """Accept connections in the calling thread until ``request_stop``."""

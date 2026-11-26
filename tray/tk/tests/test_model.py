@@ -40,7 +40,7 @@ class State(unittest.TestCase):
 
 class Text(unittest.TestCase):
     def test_tooltip(self):
-        self.assertIn("not reachable", model.tooltip("down", None, "http://h:4000", "down"))
+        self.assertIn("not reachable", model.tooltip("down", None, "http://h:4000", "down"))  # NOSONAR - test literal, no network
         self.assertIn("client key", model.tooltip("ok", None, "b", "auth"))
         self.assertIn("1 ok / 0 bad of 1", model.tooltip("ok", OK, "b"))
 

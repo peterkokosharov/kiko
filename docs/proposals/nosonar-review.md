@@ -61,12 +61,12 @@ Code: `if origin != f"http://{host.strip().lower()}" and origin not in cfg.origi
 Reason: same-origin string comparison for the WebSocket upgrade; no connection made.
 Suggested: `# NOSONAR - same-origin string comparison, no connection`
 
-## 12. gateway/kikolib/web/security.py:118 - S5332
+## 12. web/security.py:118 - S5332
 Code: `return bool(host) and headers["origin"].strip().lower() == f"http://{host.strip().lower()}"`
 Reason: same-origin check of the Origin header against Host for the local settings UI; no connection.
 Suggested: `# NOSONAR - same-origin string comparison, no connection`
 
-## 13. gateway/kikolib/web/settings.py:78 - S5332
+## 13. web/settings.py:78 - S5332
 Code: `url = f"http://{kconfig.proxy_host(cfg)}:{kconfig.proxy_port(cfg)}"`
 Reason: display URL of the local proxy on the settings page; loopback by default.
 Suggested: `# NOSONAR - display of local proxy URL, loopback by default`

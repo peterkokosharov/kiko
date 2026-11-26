@@ -67,7 +67,7 @@ _RECEIVABLE_CODES = frozenset({1000, 1001, 1002, 1003, 1007, 1008, 1009, 1010, 1
 
 def accept_key(key: str) -> str:
     """Sec-WebSocket-Accept for a Sec-WebSocket-Key (RFC 6455 section 1.3)."""
-    return base64.b64encode(hashlib.sha1((key + GUID).encode("ascii")).digest()).decode("ascii")
+    return base64.b64encode(hashlib.sha1((key + GUID).encode("ascii")).digest()).decode("ascii")  # NOSONAR - SHA-1 is mandated by RFC 6455 for Sec-WebSocket-Accept; not used for security
 
 
 def _valid_code(code: int) -> bool:
@@ -458,7 +458,7 @@ class Upgrade(Takeover):
             raise HTTPError(403, "permission_error", "Host header not allowed")
         if "origin" in hd:
             origin = hd["origin"].strip().lower()
-            if origin != f"http://{host.strip().lower()}" and origin not in cfg.origins:
+            if origin != f"http://{host.strip().lower()}" and origin not in cfg.origins:  # NOSONAR - same-origin string comparison, no connection
                 raise HTTPError(403, "permission_error", "Origin not allowed")
         chosen = None
         offered = [p.strip() for p in hd.get("sec-websocket-protocol", "").split(",") if p.strip()]

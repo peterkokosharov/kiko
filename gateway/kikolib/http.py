@@ -284,7 +284,7 @@ def proxy_for(scheme: str, host: str) -> Proxy | None:
     raw = proxies.get(scheme)
     if not raw or urllib.request.proxy_bypass_environment(host, proxies):
         return None
-    u = urlsplit(raw if "://" in raw else f"http://{raw}")
+    u = urlsplit(raw if "://" in raw else f"http://{raw}")  # NOSONAR - default scheme for a bare proxy setting; explicit scheme is kept
     if not u.hostname:
         return None
     auth = None
@@ -408,7 +408,7 @@ class StdlibBackend:
                     conn.sock.settimeout(timeout)
                 req_target, req_hdrs = target, hdrs
                 if via_proxy:  # plain http through a proxy: absolute-form target
-                    req_target = f"http://{u.netloc.rpartition('@')[2]}{target}"
+                    req_target = f"http://{u.netloc.rpartition('@')[2]}{target}"  # NOSONAR - absolute-form target mandated for plain-http via proxy; https uses CONNECT
                     req_hdrs = dict(hdrs)
                     req_hdrs.setdefault("Host", u.netloc.rpartition("@")[2])
                     if via_proxy.auth:

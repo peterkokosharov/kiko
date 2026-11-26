@@ -75,7 +75,7 @@ def register(ui) -> None:  # ui: web.ui.WebUI
 
     def _page(sess, submitted=None, status=200):
         cfg = kconfig.load_config()
-        url = f"http://{kconfig.proxy_host(cfg)}:{kconfig.proxy_port(cfg)}"
+        url = f"http://{kconfig.proxy_host(cfg)}:{kconfig.proxy_port(cfg)}"  # NOSONAR - display of local proxy URL, loopback by default
         body = r.join([
             _restart_notice(cfg),
             r.tag("p", "Settings are stored in ", r.tag("code", str(kconfig.toml_path())),

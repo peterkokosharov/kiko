@@ -84,7 +84,7 @@ def _image_block(part: dict, where: str) -> dict:
         if not sep or enc.lower() != "base64" or not data:
             raise ChatRequestError(f"{where}.image_url: only base64 data URLs are supported", where)
         return {"type": "image", "source": {"type": "base64", "media_type": mime or "image/png", "data": data}}
-    if url.startswith(("http://", "https://")):
+    if url.startswith(("http://", "https://")):  # NOSONAR - scheme check only, https accepted too; URL is forwarded, not fetched here
         return {"type": "image", "source": {"type": "url", "url": url}}
     raise ChatRequestError(f"{where}.image_url: the url must be http(s) or a data URL", where)
 

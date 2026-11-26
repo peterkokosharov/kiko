@@ -115,7 +115,7 @@ def origin_ok(headers: kserver.Headers) -> bool:
     if "origin" not in headers:
         return True
     host = headers.get("host", "")
-    return bool(host) and headers["origin"].strip().lower() == f"http://{host.strip().lower()}"
+    return bool(host) and headers["origin"].strip().lower() == f"http://{host.strip().lower()}"  # NOSONAR - same-origin string comparison, no connection
 
 
 # --- sessions ---

@@ -30,7 +30,7 @@ DATA = HERE / "data"
 LOGS = DATA / "logs"
 HOST = "127.0.0.1"
 GW_PORT, KIKO_PORT = 4100, 4000
-GW_BASE = f"http://{HOST}:{GW_PORT}/v1"
+GW_BASE = f"http://{HOST}:{GW_PORT}/v1"  # NOSONAR - loopback only (127.0.0.1), no TLS needed
 MODELS = (("haiku", "HAIKU"), ("sonnet", "SONNET"), ("opus", "OPUS"))  # Anthropic only
 PIDFILE = DATA / "chain.pid"
 
@@ -202,10 +202,10 @@ def stop() -> int:
 def chain_ready() -> bool:
     """kiko-lite on :4000 answers /health AND accepts our master key (a foreign server fails the second)."""
     try:
-        with urllib.request.urlopen(f"http://{HOST}:{KIKO_PORT}/health", timeout=3) as r:
+        with urllib.request.urlopen(f"http://{HOST}:{KIKO_PORT}/health", timeout=3) as r:  # NOSONAR - loopback health probe
             if r.status != 200 or json.loads(r.read().decode("utf-8")).get("status") != "ok":
                 return False
-        req = urllib.request.Request(f"http://{HOST}:{KIKO_PORT}/v1/models",
+        req = urllib.request.Request(f"http://{HOST}:{KIKO_PORT}/v1/models",  # NOSONAR - loopback only (127.0.0.1)
                                      headers={"x-api-key": secret("masterkey")})
         with urllib.request.urlopen(req, timeout=5) as r:
             return r.status == 200
