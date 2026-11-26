@@ -41,6 +41,12 @@ by `/kiko/v1/*`. A gateway that predates this module still degrades gracefully: 
 shows it in its Roles column). `status` is a free short word (`ok`, `down`, `unknown`). `context_window` / `max_output` are token counts
 (integers) or `null` when unknown; the tray shows them as `1M` / `128k` / `?` (same rule as `kiko-lite list-models`).
 
+### GET /kiko/v1/models.xml
+The same catalog as XML for tools and humans (one `<model>` per row: human name, full model id, key NAME, one `<role>` tag per
+role, `<context>`, `<max_output>`, `<price per="1M">`). Loopback and token rules as every route here; `200`
+`Content-Type: application/xml; charset=utf-8`. Schema `docs/schema/kiko-models.xsd`, description in `docs/MODELS.md`.
+Also written by `kiko-lite export-models --xml [--out FILE]`. No key value is ever in it.
+
 ### GET /kiko/v1/classes
 ```json
 {"classes":[{"name":"OPUS","keyword":"opus","role":"architect"}]}

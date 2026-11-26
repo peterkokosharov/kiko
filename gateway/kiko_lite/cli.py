@@ -36,7 +36,7 @@ from typing import Any
 
 from kikolib import config as kconfig, dotenv, factory, http as _http, keystore, logs as klogs, server as kserver, yaml_lite  # noqa: F401
 from . import app as lite
-from . import management, prices, ui
+from . import catalog_xml, management, prices, ui
 from .keys import WatchedEnv, dotenv_values as _dotenv_values, key_source as _key_source
 from . import providers as ptable
 from .db import CLASSES, Database, SCHEMA_VERSION, THINKING_MODES, TOOLSHIM_MODES, check_timeout, default_path, fmt_timeout, fmt_tokens
@@ -547,6 +547,31 @@ def cmd_list_models(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_models(args: argparse.Namespace) -> int:
+    """The model catalog as XML (docs/schema/kiko-models.xsd): to stdout or ``--out FILE``. Key NAMES only."""
+    if not args.xml:
+        return _err("name the format: export-models --xml")
+    db = _open(args, readonly=True)
+    if db is None:
+        return 1
+    data = catalog_xml.export_xml(db.models())
+    if args.out:
+        out = Path(args.out)
+        try:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            tmp = out.with_name(out.name + ".tmp")
+            tmp.write_bytes(data)
+            os.replace(tmp, out)
+        except OSError as e:
+            return _err(f"cannot write {out}: {e}")
+        print(f"kiko: wrote {len(db.models())} model(s) to {out}")
+        return 0
+    sys.stdout.flush()
+    sys.stdout.buffer.write(data)
+    sys.stdout.buffer.flush()
+    return 0
+
+
 def cmd_set_thinking(args: argparse.Namespace) -> int:
     db = _open(args)
     if db is None:
@@ -874,6 +899,9 @@ def build_parser() -> argparse.ArgumentParser:
     s = add("delete-provider", cmd_delete_provider, "delete a provider no model uses")
     s.add_argument("name")
     add("list-models", cmd_list_models, "list models, aliases and settings")
+    s = add("export-models", cmd_export_models, "write the model catalog as XML (key names only, no key values)")
+    s.add_argument("--xml", action="store_true", help="XML format (docs/schema/kiko-models.xsd)")
+    s.add_argument("--out", metavar="FILE", help="write to FILE instead of stdout")
     add("list-classes", cmd_list_classes, "list model classes (name, keyword, role, enabled models)")
     s = add("add-class", cmd_add_class, "add a model class (detected by KEYWORD in the requested model name)")
     s.add_argument("name", help="upper-case, e.g. VOICE")

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Author: Peter Kokosharov <peter.kokosharov@gmail.com> -->
+<!-- AI models: claude-sonnet-5-5 -->
+<!--
+  Schema of the kiko model catalog written by `kiko-lite export-models` (xml format) and
+  GET /kiko/v1/models.xml (docs/MODELS.md). Version "1". Child elements of <model> may come in any order,
+  each at most once (xs:all); the exporter writes them in the order shown. No key VALUE is ever part of the
+  file: <key> is the NAME of an environment variable / keystore entry.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+
+  <xs:element name="kiko-models">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="model" type="ModelType" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="version" type="xs:string" use="required" fixed="1"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="ModelType">
+    <xs:all>
+      <!-- human name (display_name); the database alias when none is set -->
+      <xs:element name="alias" type="xs:string"/>
+      <!-- full provider model id as stored: PROVIDER/UPSTREAM-ID -->
+      <xs:element name="name" type="xs:string"/>
+      <!-- API key NAME, e.g. NVIDIA_API_KEY -->
+      <xs:element name="key" type="KeyName"/>
+      <xs:element name="api_base" type="xs:anyURI" minOccurs="0"/>
+      <xs:element name="roles">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="role" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:simpleContent>
+                  <xs:extension base="ClassName">
+                    <!-- the primary role (models.model_class); without a marker the first role is the primary -->
+                    <xs:attribute name="primary" type="xs:boolean" use="optional"/>
+                  </xs:extension>
+                </xs:simpleContent>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <!-- tokens; always present, empty when unknown -->
+      <xs:element name="context" type="TokensOrEmpty"/>
+      <xs:element name="max_output" type="TokensOrEmpty"/>
+      <!-- USD per million tokens: <in>/<out>[/<cache_read>], or the text "free", or empty (unknown) -->
+      <xs:element name="price">
+        <xs:complexType mixed="true">
+          <xs:sequence>
+            <xs:element name="in" type="PriceValue" minOccurs="0"/>
+            <xs:element name="out" type="PriceValue" minOccurs="0"/>
+            <xs:element name="cache_read" type="PriceValue" minOccurs="0"/>
+          </xs:sequence>
+          <xs:attribute name="per" type="xs:string" use="required" fixed="1M"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="priority" type="xs:integer"/>
+      <xs:element name="thinking" minOccurs="0">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="on"/>
+            <xs:enumeration value="off"/>
+            <xs:enumeration value="off-prompt"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <!-- seconds -->
+      <xs:element name="timeout" type="xs:decimal" minOccurs="0"/>
+      <xs:element name="toolshim" minOccurs="0">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="on"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+    </xs:all>
+    <!-- the database alias (unique) -->
+    <xs:attribute name="id" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="[A-Za-z0-9._:\-]{1,128}"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="enabled" type="xs:boolean" use="required"/>
+    <!-- ok / error / unknown; informational, never imported -->
+    <xs:attribute name="status" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:simpleType name="KeyName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z][A-Z0-9_]{0,63}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ClassName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z][A-Z0-9_]{0,31}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TokensOrEmpty">
+    <xs:union>
+      <xs:simpleType><xs:restriction base="xs:positiveInteger"/></xs:simpleType>
+      <xs:simpleType><xs:restriction base="xs:string"><xs:length value="0"/></xs:restriction></xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+
+  <xs:simpleType name="PriceValue">
+    <xs:restriction base="xs:decimal"><xs:minInclusive value="0"/></xs:restriction>
+  </xs:simpleType>
+</xs:schema>

@@ -151,3 +151,37 @@ and after). `display_name` (nullable) is the human name used by the catalog expo
 * Owner decision 2026-11-26: the Claude Opus route (`opus`, "Anthropic Opus 5.5") has roles OPUS (primary), CODER and
   EYES, context 1M, max output 128k.
 
+## XML export of the catalog (2026-11-26)
+
+`kiko-lite export-models --xml [--out FILE]` writes the whole catalog; the gateway serves the same bytes at
+`GET /kiko/v1/models.xml` (loopback only, management token, like every `/kiko/v1/*` route; `Content-Type:
+application/xml`). UTF-8, written with `xml.etree.ElementTree`, ordered by alias, so two exports of the same
+catalog are byte-identical. Only key NAMES appear; a stored text that looks like a key value is replaced by
+`<invalid name, value hidden>`. Schema: [`docs/schema/kiko-models.xsd`](schema/kiko-models.xsd) (version "1").
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<kiko-models version="1">
+  <model id="opus" enabled="true" status="ok">
+    <alias>Anthropic Opus 5.5</alias>      <!-- display_name; the alias when none is set -->
+    <name>cgw/opus</name>                  <!-- full provider model id as stored -->
+    <key>CGW_TOKEN</key>                   <!-- key NAME, never a value -->
+    <api_base>http://127.0.0.1:4100/v1</api_base>   <!-- only when the row has its own base -->
+    <roles>
+      <role primary="true">OPUS</role>
+      <role>EYES</role>
+      <role>CODER</role>
+    </roles>
+    <context>1000000</context>             <!-- tokens; always present, empty when unknown -->
+    <max_output>128000</max_output>
+    <price per="1M">free</price>           <!-- or <in>/<out>[/<cache_read>] in USD, or empty = unknown -->
+    <priority>100</priority>
+    <!-- <thinking>, <timeout>, <toolshim> only when set -->
+  </model>
+</kiko-models>
+```
+
+`<price>` reads `free` when the stored price is 0 / 0 or the provider is a free-tier provider with no stored price
+(`FREE_TIER_PROVIDERS` in `kiko_lite/catalog_xml.py`: `nvidia`); `<in>` / `<out>` (and `<cache_read>` when known)
+when priced; empty when the price is unknown. The `enabled` and `status` attributes are the row's own.
+

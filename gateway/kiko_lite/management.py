@@ -20,8 +20,9 @@ from typing import Any, Callable
 import kikolib
 from kikolib import config as kconfig
 from kikolib import server
-from kikolib.server import JsonResponse, Request
+from kikolib.server import JsonResponse, Request, StreamResponse
 
+from . import catalog_xml
 from . import keys as key_names
 
 TOKEN_FILE = "api-token"  # ~/.kiko/api-token, mode 0600, first line
@@ -157,6 +158,12 @@ class ManagementAPI:
         return JsonResponse({"models": out})
 
     @_guarded
+    def models_xml(self, req: Request) -> StreamResponse:
+        """The whole catalog as XML (docs/schema/kiko-models.xsd); key NAMES only. Same loopback + token rules."""
+        return StreamResponse([catalog_xml.export_xml(self.db.models())],
+                              headers={"Cache-Control": "no-store"}, content_type="application/xml; charset=utf-8")
+
+    @_guarded
     def classes(self, req: Request) -> JsonResponse:
         return JsonResponse({"classes": [{"name": c["name"], "keyword": c["keyword"],
                                           "role": c.get("role") or ""} for c in self.db.classes()]})
@@ -279,6 +286,7 @@ def install(app: Any, db: Any, db_path: Path, port: int,
     api = ManagementAPI(db, db_path, port, token or token_for(Path(db_path)), env_file, page)
     app.route("GET", "/kiko/v1/status")(api.status)
     app.route("GET", "/kiko/v1/models")(api.models)
+    app.route("GET", "/kiko/v1/models.xml")(api.models_xml)
     app.route("GET", "/kiko/v1/classes")(api.classes)
     app.route("POST", "/kiko/v1/models/{name}/class")(api.set_class)
     app.route("POST", "/kiko/v1/models/{name}/roles")(api.set_roles)
