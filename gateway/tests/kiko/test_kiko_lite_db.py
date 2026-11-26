@@ -95,7 +95,7 @@ def db(tmp_path):
 
 def test_fresh_db_created_with_all_tables_and_version(tmp_path):
     d = kdb.Database(tmp_path / "sub" / "kiko.db")
-    assert d.path.exists() and d.schema_version() == 8  # the one literal pin: bump it with the schema
+    assert d.path.exists() and d.schema_version() == 9  # the one literal pin: bump it with the schema
     con = sqlite3.connect(d.path)
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"billing", "models", "responses", "aliases", "settings"} <= tables
@@ -511,7 +511,7 @@ def wired(db, monkeypatch):
         return client.request("POST", srv.url + "/v1/messages",
                               {"x-api-key": MASTER, "content-type": "application/json"}, json.dumps(body).encode())
 
-    yield SimpleNamespace(db=db, fake=fake, post=post)
+    yield SimpleNamespace(db=db, fake=fake, post=post, srv_url=srv.url)
     client.close()
     srv.stop()
 
@@ -706,3 +706,61 @@ def test_list_models_only_resolvable_ids(db):
     assert "gem" in ids and "exact" in ids and "sonnet" in ids
     assert not {"off", "bad", "my-*", "dead", "haiku", "opus"} & set(ids)
     assert len(ids) == len(set(ids)) and all(r(i) is not None for i in ids)
+
+
+# ---- v9: context_window / max_output -----------------------------------------------------------------
+
+def test_v9_migrates_a_v8_db_and_adds_context_columns(tmp_path):
+    p = tmp_path / "kiko.db"
+    d = kdb.Database(p)
+    d.upsert_model("m", "gemini/gemini-3.8-flash", "K")
+    con = sqlite3.connect(p)
+    con.execute("ALTER TABLE models DROP COLUMN context_window")
+    con.execute("ALTER TABLE models DROP COLUMN max_output")
+    con.execute("PRAGMA user_version=8")
+    con.commit()
+    con.close()
+    d2 = kdb.Database(p)
+    assert d2.schema_version() == 9 and {"context_window", "max_output"} <= cols(p, "models")
+    row = d2.get_model("m")
+    assert row["context_window"] is None and row["max_output"] is None  # unknown, data untouched
+
+
+def test_context_window_stored_kept_and_validated(tmp_path):
+    d = kdb.Database(tmp_path / "kiko.db")
+    d.upsert_model("m", "gemini/gemini-3.8-flash", "K", context_window=1_000_000, max_output=64_000)
+    d.upsert_model("m", "gemini/gemini-3.8-flash", "K")  # omitted = kept
+    assert (d.get_model("m")["context_window"], d.get_model("m")["max_output"]) == (1_000_000, 64_000)
+    d.upsert_model("m", "gemini/gemini-3.8-flash", "K", context_window=2_000_000)
+    assert d.get_model("m")["context_window"] == 2_000_000 and d.get_model("m")["max_output"] == 64_000
+    for bad in (0, -5, True, 1.5):
+        with pytest.raises(ValueError):
+            d.upsert_model("m", "gemini/gemini-3.8-flash", "K", context_window=bad)
+
+
+def test_fmt_tokens():
+    assert [kdb.fmt_tokens(x) for x in (None, 0, 1_000_000, 128_000, 131_072, 200_000)] == \
+        ["?", "?", "1M", "128k", "131072", "200k"]
+
+
+def test_model_limits_via_resolver_and_v1_models(tmp_path):
+    d = kdb.Database(tmp_path / "kiko.db")
+    d.upsert_model("big", "gemini/gemini-3.8-flash", "K", model_class="SONNET", context_window=1_000_000,
+                   max_output=64_000)
+    d.upsert_model("unk", "gemini/gemini-3.1-pro-preview", "K", model_class="FABLE")
+    res = DBResolver(Catalog(d))
+    assert res.model_limits("big") == (1_000_000, 64_000)
+    assert res.model_limits("sonnet") == (1_000_000, 64_000)  # class name resolves to the row
+    assert res.model_limits("unk") == (None, None)
+    assert res.model_limits("nothing-like-it") == (None, None)
+
+
+def test_v1_models_exposes_context_length_when_known(wired):
+    wired.db.upsert_model("lim", "openai/lim-model", "MY_UP_KEY", "https://llm.example.org/v1", "HAIKU", 5,
+                          context_window=200_000, max_output=64_000)
+    r = khttp.StdlibBackend().request("GET", wired.srv_url + "/v1/models", {"x-api-key": MASTER}, None)
+    assert r.status == 200
+    items = {m["id"]: m for m in json.loads(r.read())["data"]}
+    assert items["lim"]["context_length"] == 200_000 and items["lim"]["max_output_tokens"] == 64_000
+    assert items["lim"]["max_input_tokens"] == 200_000 and items["lim"]["max_tokens"] == 64_000
+    assert "context_length" not in items["cheap"]  # unknown stays absent

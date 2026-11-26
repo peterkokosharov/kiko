@@ -43,3 +43,84 @@ through their enabled candidates in the same test run.
 ## Groq
 
 `GROQ_API_KEY` returned 403 on `/v1/models` on this machine — no Groq rows are configured.
+
+## Context window and max output (schema v9, 2026-11-26)
+
+`models` has two nullable columns, `context_window` and `max_output` (tokens; NULL = unknown). They show in
+`kiko-lite list-models` (`ctx=1M/64k`, `?` = unknown), on the web UI Models page and edit form, and in
+`GET /v1/models` (`context_length`, `max_input_tokens`, `max_output_tokens`, `max_tokens`; omitted when unknown)
+and `GET /model/info` (`max_input_tokens`, `max_output_tokens`). Set them with
+`kiko-lite add-model ALIAS ... --context-window N --max-output N` (kept when omitted).
+
+Source codes: **A** = Anthropic model docs (2026-11-26); **C** = public catalog models.dev
+(`https://models.dev/api.json`, fetched 2026-11-26; the provider entry named after `C`); **D** = the vendor's model
+card, from the author's knowledge and NOT re-fetched (treat as approximate). Provider-served limits can be lower
+than the model's own limit. "llmhub" rows were imported from
+[llmhub models.json](https://github.com/peterkokosharov/llmhub/blob/main/models.json) (priority 900, alias `hub-<id>`);
+llmhub has no context or price fields, so every figure here comes from A/C/D.
+
+| Alias | Class | Provider id | Context | Max output | Key name | Enabled | Source |
+|---|---|---|---|---|---|---|---|
+| `opus` | OPUS | custom/opus (Claude chain) | 1M | 128k | CGW_TOKEN | yes | A |
+| `sonnet` | SONNET | custom/sonnet (Claude chain) | 1M | 128k | CGW_TOKEN | yes | A |
+| `haiku` | HAIKU | custom/haiku (Claude chain) | 1M | 128k | CGW_TOKEN | yes | A (claude-haiku-5-5) |
+| `nemotron-ultra` | OPUS | nvidia/nemotron-3-ultra-550b-a55b | 1M | 64k | NVIDIA_API_KEY | yes | C nvidia |
+| `gpt-astra` | OPUS | openai/gpt-6.2-astra via OpenRouter | 1.05M | 128k | OPENROUTER_API_KEY | no (no key) | C openai |
+| `nemotron-super` | SONNET | nvidia/nemotron-3.5-super-vl-120b-a12b | 1048576 | 8k | NVIDIA_API_KEY | yes | C nvidia |
+| `llama-nemotron` | SONNET | nvidia/nemotron-3.5-lightning-30b-a3b | 262144 | 262144 | NVIDIA_API_KEY | yes | C nvidia |
+| `nvidia-large` | SONNET | mistralai/mistral-large-4-1t-a52b | 1048576 | 262144 | NVIDIA_API_KEY | yes | C mistral/mistral-large-4 (same model, Mistral API figures) |
+| `gemini-lite` | HAIKU | gemini/gemini-flash-lite-latest | 1048576 | 64k | GEMINI_API_KEY | yes | C google |
+| `gemini-35-lite` | HAIKU | gemini/gemini-3.5-flash-lite | 1048576 | 64k | GEMINI_API_KEY | yes | C google |
+| `ministral-3b` | HAIKU | mistral/ministral-3b-latest | 131072 | 131072 | MISTRAL_API_KEY | no (no key) | C mistral |
+| `muse-glimmer` | FABLE | nvidia/meta/muse-glimmer-30b | 131072 | 131072 | NVIDIA_API_KEY | yes | C nvidia |
+| `codestral` | CODER | mistral/codestral-latest | 256000 | 4096 | MISTRAL_API_KEY | no (no key) | C mistral |
+| `nemotron-vl` | EYES | nvidia/nemotron-3.5-super-vl-120b-a12b | 1048576 | 8k | NVIDIA_API_KEY | yes | C nvidia |
+| `gemini-tutor` | TUTOR | gemini/gemini-3.5-flash-lite | 1048576 | 64k | GEMINI_API_KEY | yes | C google |
+| `router-mini` | ROUTER | mistral/ministral-3b-latest | 131072 | 131072 | MISTRAL_API_KEY | no (no key) | C mistral |
+| `hub-gemini-3.5-flash-lite` | HAIKU | gemini/gemini-3.5-flash-lite | 1048576 | 64k | GEMINI_API_KEY | yes (ping OK) | C google; llmhub |
+| `hub-gemini-3.8-flash` | SONNET | gemini/gemini-3.8-flash | 1048576 | 64k | GEMINI_API_KEY | no (ping: timeout 40 s twice, then 529 overloaded after 36 s) | C google; llmhub |
+| `hub-gemini-3.1-pro-preview` | FABLE | gemini/gemini-3.1-pro-preview | 1048576 | 64k | GEMINI_API_KEY | no (429, free quota) | C google; llmhub |
+| `hub-gpt-6-luna` | FABLE | openai/gpt-6-luna | 1.05M | 128k | OPENAI_API_KEY | no (no key) | C openai; llmhub |
+| `hub-gpt-5-nano` | HAIKU | openai/gpt-5-nano | 400k | 128k | OPENAI_API_KEY | no (no key) | C openai; llmhub |
+| `hub-gpt-4o-mini` | HAIKU | openai/gpt-4o-mini | 128k | 16k | OPENAI_API_KEY | no (no key) | C openai; llmhub |
+| `hub-nemotron-ultra-253b-instruct` | OPUS | nvidia/nemotron-ultra-253b-instruct | 131072 | ? | NVIDIA_API_KEY | no (404, id rotated away) | D; llmhub |
+| `hub-nemotron-super-49b-instruct` | SONNET | nvidia/nemotron-super-49b-instruct | 131072 | ? | NVIDIA_API_KEY | no (404) | D; llmhub |
+| `hub-llama-3.3-70b-instruct` | SONNET | nvidia/llama-3.3-70b-instruct | 131072 | 4096 | NVIDIA_API_KEY | no (404) | C openrouter meta-llama/llama-3.3-70b-instruct; llmhub |
+| `hub-llama-3.1-nemotron-70b-instruct` | SONNET | nvidia/llama-3.1-nemotron-70b-instruct | 131072 | ? | NVIDIA_API_KEY | no (400) | D; llmhub |
+| `hub-llama-3.1-70b-instruct` | HAIKU | nvidia/llama-3.1-70b-instruct | 131072 | 8192 | NVIDIA_API_KEY | no (404) | C openrouter; llmhub |
+| `hub-mistral-nemo-12b-instruct` | HAIKU | nvidia/mistral-nemo-12b-instruct | 131072 | 16384 | NVIDIA_API_KEY | no (404) | C openrouter mistralai/mistral-nemo; llmhub |
+| `hub-llama-3.2-3b-instruct` | HAIKU | nvidia/llama-3.2-3b-instruct | 131072 | 131072 | NVIDIA_API_KEY | no (404) | C openrouter; llmhub |
+| `hub-phi-3-mini-128k-instruct` | HAIKU | nvidia/phi-3-mini-128k-instruct | 131072 | ? | NVIDIA_API_KEY | no (404) | D; llmhub |
+| `hub-deepseek-r1` | FABLE | nvidia/deepseek-r1 | 131072 | ? | NVIDIA_API_KEY | no (404) | D; llmhub |
+| `hub-qwen2.5-72b-instruct` | SONNET | nvidia/qwen2.5-72b-instruct | 131072 | 8192 | NVIDIA_API_KEY | no (404) | D; llmhub |
+| `hub-qwen2.5-coder-32b-instruct` | SONNET | nvidia/qwen2.5-coder-32b-instruct | 131072 | 8192 | NVIDIA_API_KEY | no (404) | D; llmhub |
+| `hub-mistral-7b-instruct-v0.3` | HAIKU | nvidia/mistral-7b-instruct-v0.3 | 32768 | ? | NVIDIA_API_KEY | no (404) | D; llmhub |
+| `hub-gemma-2-27b-it` | HAIKU | nvidia/gemma-2-27b-it | 8192 | 2048 | NVIDIA_API_KEY | no (404) | C openrouter google/gemma-2-27b-it; llmhub |
+| `hub-gemma-2-9b-it` | HAIKU | nvidia/gemma-2-9b-it | 8192 | ? | NVIDIA_API_KEY | no (404) | D; llmhub |
+
+Other Anthropic figures (for routes added later): claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5, claude-fable-5-x
+1,000,000 / 128,000; Claude Haiku 4.5 200,000 / 64,000; Sonnet 4.6 and Opus 4.7/4.8 1,000,000 / 128,000 (A).
+
+The `hub-*` NVIDIA rows are kept (disabled, status error) as a record of llmhub's stale ids: the current NVIDIA
+catalog (models.dev, 41 entries) holds none of them; use the verified rows above instead. Enabling one of them
+re-checks it. The ping of the enabled `hub-*` rows was done through `kiko_ping.py`; class routing is unchanged
+(`hub-*` rows have priority 900, below every existing row of their class). A timestamped backup
+`kiko.db.bak-YYYYMMDD-HHMMSS-llmhub` was made next to the live DB before the import.
+
+### NVIDIA-hosted stand-ins for models whose own provider has no key yet (2026-11-26)
+
+Checked against NVIDIA's public model list (`GET https://integrate.api.nvidia.com/v1/models`, no key needed, 30
+entries that day) and models.dev. NVIDIA hosts no OpenAI model, no Codestral/Ministral, and none of llmhub's old
+Llama/Qwen/Phi/DeepSeek ids. The original-provider rows stay disabled until their keys arrive. "Served by" is the
+provider that really answers.
+
+| Alias | Class | Stand-in for | Served by (provider id) | Context / out | Ping | Enabled |
+|---|---|---|---|---|---|---|
+| `codestral-nv` | CODER | codestral (Mistral) | NVIDIA `poolside/laguna-xs-2.1` (closest coder by role, not the same model) | 262144 / 16384 (C nvidia) | 200 OK | yes |
+| `router-mini-nv` | ROUTER | router-mini / ministral-3b (Mistral) | NVIDIA `nvidia/nemotron-3.5-bolt-e4b` (small model by role) | unknown (not in models.dev) | 200 OK | yes |
+| `ministral-3b-nv` | HAIKU | ministral-3b (Mistral) | NVIDIA `google/gemma-3-4b-it` | 131072 / 16384 (C nvidia) | 404 | no |
+| `gpt-4o-mini-nv` | HAIKU | hub-gpt-4o-mini (OpenAI) | NVIDIA `google/gemma-3-12b-it` | 131072 / 16384 (C nvidia) | 404 | no |
+
+No NVIDIA equivalent exists for `hub-gpt-6-luna`, `hub-gpt-5-nano`, `gpt-astra` (OpenAI / OpenRouter); Mistral Large 4
+is already served by NVIDIA as `nvidia-large`. NVIDIA also lists models llmhub does not know (kimi-k3.1-pro, glm-5.3-flash,
+minimax-m3.1-flash, step-5-preview); they were not added.

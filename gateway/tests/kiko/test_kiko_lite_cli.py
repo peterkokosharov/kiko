@@ -659,3 +659,15 @@ def test_thinking_option_add_model_set_thinking_and_list(run):
     assert run("set-thinking", "nim", "on")[0] == 0 and kdb.Database(run.path).get_model("nim")["thinking"] == "on"
     assert run("set-thinking", "nim", "default")[0] == 0 and kdb.Database(run.path).get_model("nim")["thinking"] is None
     assert run("set-thinking", "nope", "off")[0] == 1
+
+
+def test_list_models_shows_context_and_max_output(run):
+    assert run("add-model", "big", "--provider", "gemini/gemini-3.8-flash", "--api-key-env", "MY_KEY",
+               "--context-window", "1000000", "--max-output", "64000")[0] == 0
+    assert run("add-model", "unk", "--provider", "gemini/gemini-3.1-pro-preview", "--api-key-env", "MY_KEY")[0] == 0
+    out = run("list-models")[1]
+    big = next(line for line in out.splitlines() if line.strip().startswith("big"))
+    unk = next(line for line in out.splitlines() if line.strip().startswith("unk"))
+    assert "ctx=1M/64k" in big and "ctx=?/?" in unk
+    assert run("add-model", "big", "--provider", "gemini/gemini-3.8-flash", "--api-key-env", "MY_KEY")[0] == 0
+    assert kdb.Database(run.path).get_model("big")["context_window"] == 1_000_000  # kept when omitted

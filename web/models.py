@@ -10,7 +10,7 @@ from typing import Any
 
 from kiko_lite import app as lite
 from kiko_lite import prices
-from kiko_lite.db import fmt_timeout
+from kiko_lite.db import fmt_timeout, fmt_tokens
 from kiko_lite.keys import dotenv_values, key_source
 from kiko_lite import providers as ptable
 from kiko_lite.resolver import _PREFIX, MappingError, check_api_base, map_row, valid_key_name
@@ -27,6 +27,15 @@ def _num(text: str) -> float | None:
     if not math.isfinite(value) or value < 0:
         raise ValueError("prices must be finite numbers, zero or more")
     return value
+
+
+def _tokens(text: str) -> int | None:
+    text = text.strip()
+    if not text:
+        return None
+    if not text.isdigit() or int(text) <= 0:
+        raise ValueError("context window and max output must be positive whole numbers of tokens")
+    return int(text)
 
 
 def _timeout_text(value: Any) -> str:
@@ -129,6 +138,8 @@ def register(ui) -> None:  # ui: web.ui.WebUI
             r.select("Thinking (OpenAI-compatible models only)", "thinking",
                      [("default", "default (send nothing)"), ("off", "off (enable_thinking=false)"), ("on", "on (enable_thinking=true)"),
                       ("off-prompt", "off via a /no_think system line")], v("thinking") or "default"),
+            r.field("Context window (tokens; empty = unknown)", "context_window", v("context_window"), "number", min=1),
+            r.field("Max output (tokens; empty = unknown)", "max_output", v("max_output"), "number", min=1),
             r.select("Toolshim (turn a tool call the model wrote as text into a real one)", "toolshim",
                      [("off", "off"), ("on", "on")], v("toolshim") or "off"),
             r.field("Timeout in seconds (empty = the global upstream_timeout; for slow free models, e.g. 600)",
@@ -151,10 +162,11 @@ def register(ui) -> None:  # ui: web.ui.WebUI
                               alias=alias),
                 r.inline_post("/models/delete", sess.csrf, "Delete", "danger", alias=alias)])
             rows.append([alias, m["provider"], m["model_class"], m["priority"], "yes" if m["enabled"] else "no",
-                         m["status"], m.get("thinking") or "default", m.get("toolshim") or "off",
+                         m["status"], fmt_tokens(m.get("context_window")), fmt_tokens(m.get("max_output")),
+                         m.get("thinking") or "default", m.get("toolshim") or "off",
                          f"{fmt_timeout(m.get('timeout'))} s" if fmt_timeout(m.get("timeout")) else "", _key_cell(m["api_key_env"], env_file), actions])
         body = r.join([r.tag("p", r.link("Add model", "/models/new", class_="button")),
-                       r.table(["Alias", "Provider", "Class", "Priority", "Enabled", "Status", "Thinking", "Toolshim", "Timeout", "API key", ""], rows)])
+                       r.table(["Alias", "Provider", "Class", "Priority", "Enabled", "Status", "Context", "Max out", "Thinking", "Toolshim", "Timeout", "API key", ""], rows)])
         return ui.render(sess, "Models", body, "/models")
 
     @ui.get("/models/new")
@@ -209,7 +221,8 @@ def register(ui) -> None:  # ui: web.ui.WebUI
                 _num(form.get("price_out_per_mtok", "")), _num(form.get("price_cache_read_per_mtok", "")),
                 "enabled" in form, thinking=form.get("thinking", "default") or "default",
                 timeout=form.get("timeout", "").strip() or "default",
-                toolshim=form.get("toolshim", "off") or "off")  # empty clears
+                toolshim=form.get("toolshim", "off") or "off",
+                context_window=_tokens(form.get("context_window", "")), max_output=_tokens(form.get("max_output", "")))  # empty clears
         except (ValueError, TypeError) as e:
             sess.flash("error", str(e))
             values = {**form, "enabled": "enabled" in form}

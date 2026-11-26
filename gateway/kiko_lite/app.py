@@ -858,8 +858,17 @@ class _Gateway:
     def models(self, req: Request) -> JsonResponse:
         listing = getattr(self.resolver, "list_models", None)
         ids = list(listing()) if callable(listing) else []
-        return JsonResponse({"object": "list", "data": [
-            {"id": i, "object": "model", "created": 0, "owned_by": "kiko"} for i in ids]})
+        limits = getattr(self.resolver, "model_limits", None)
+        data = []
+        for i in ids:
+            item: dict[str, Any] = {"id": i, "object": "model", "created": 0, "owned_by": "kiko"}
+            ctx, out = limits(i) if callable(limits) else (None, None)
+            if ctx:  # OpenAI-style / Anthropic-style names; absent when unknown (clients then use their default)
+                item["context_length"] = item["max_input_tokens"] = ctx
+            if out:
+                item["max_output_tokens"] = item["max_tokens"] = out
+            data.append(item)
+        return JsonResponse({"object": "list", "data": data})
 
     def litellm_model_info(self, req: Request) -> JsonResponse:
         """Model metadata for goose's LiteLLM provider (``GET /model/info``).
@@ -869,7 +878,13 @@ class _Gateway:
         """
         listing = getattr(self.resolver, "list_models", None)
         ids = list(listing()) if callable(listing) else []
-        return JsonResponse({"data": [{"model_name": i, "model_info": {}} for i in ids]})
+        limits = getattr(self.resolver, "model_limits", None)
+        data = []
+        for i in ids:
+            ctx, out = limits(i) if callable(limits) else (None, None)
+            info = {k: v for k, v in (("max_input_tokens", ctx), ("max_output_tokens", out)) if v}
+            data.append({"model_name": i, "model_info": info})
+        return JsonResponse({"data": data})
 
     def _messages(self, body: Any, front: Front | None, path: str = "") -> JsonResponse | StreamResponse:
         try:

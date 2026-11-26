@@ -39,7 +39,7 @@ from . import app as lite
 from . import management, prices, ui
 from .keys import WatchedEnv, dotenv_values as _dotenv_values, key_source as _key_source
 from . import providers as ptable
-from .db import CLASSES, Database, SCHEMA_VERSION, THINKING_MODES, TOOLSHIM_MODES, check_timeout, default_path, fmt_timeout
+from .db import CLASSES, Database, SCHEMA_VERSION, THINKING_MODES, TOOLSHIM_MODES, check_timeout, default_path, fmt_timeout, fmt_tokens
 from .resolver import (HIDDEN, MappingError, build_db_app, check_api_base, check_provider, custom_provider_names,
                        key_name_problem, map_row, show_name, valid_key_name)
 
@@ -434,7 +434,8 @@ def cmd_add_model(args: argparse.Namespace) -> int:
     try:
         new = db.upsert_model(args.alias, args.provider, args.api_key_env, args.api_base, args.model_class,
                               args.priority, p_in, p_out, p_cache, thinking=args.thinking,
-                              timeout=args.timeout, toolshim=args.toolshim)
+                              timeout=args.timeout, toolshim=args.toolshim,
+                              context_window=args.context_window, max_output=args.max_output)
     except ValueError as e:
         return _err(str(e))
     print(f"kiko: {'added' if new else 'updated'} model '{args.alias}' in {db.path}")
@@ -529,8 +530,9 @@ def cmd_list_models(args: argparse.Namespace) -> int:
             think += f"  timeout={fmt_timeout(r.get('timeout'))}s"
         if r.get("toolshim") == "on":
             think += "  toolshim=on"
+        ctx = f"  ctx={fmt_tokens(r.get('context_window'))}/{fmt_tokens(r.get('max_output'))}"
         print(f"  {r['alias']:<28} {r['model_class']:<7} prio {r['priority']:<4} {r['status']:<8} "
-              f"{'on ' if r['enabled'] else 'OFF'} {target}  key={key}{think}")
+              f"{'on ' if r['enabled'] else 'OFF'} {target}  key={key}{ctx}{think}")
     for glob, target in db.aliases():
         print(f"  alias {glob} -> {target}")
     for k, v in db.settings().items():
@@ -844,6 +846,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--timeout", metavar="SECONDS",
                    help="upstream timeout of this model in seconds (first byte, then idle between chunks; for slow "
                         "free models); 0 or 'default' = use [proxy] upstream_timeout (kept when omitted)")
+    s.add_argument("--context-window", type=int, metavar="TOKENS",
+                   help="context window of the model in tokens (kept when omitted; unknown = not set)")
+    s.add_argument("--max-output", type=int, metavar="TOKENS",
+                   help="largest answer of the model in tokens (kept when omitted; unknown = not set)")
     s.add_argument("--toolshim", choices=TOOLSHIM_MODES,
                    help="on = turn a tool call the model wrote as text into a real tool call; off = leave answers "
                         "alone (kept when omitted)")

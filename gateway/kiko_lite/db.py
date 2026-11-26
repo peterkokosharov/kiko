@@ -4,12 +4,13 @@
 """SQLite store shared with kiko-full: the SAME file (default ``~/.kiko/kiko.db``) and the same three tables.
 
 ``billing``, ``models`` and ``responses`` keep kiko-full's columns, so an existing kiko.db keeps working in both
-directions. kiko-lite adds only nullable columns and new tables, guarded by ``PRAGMA user_version`` (8):
+directions. kiko-lite adds only nullable columns and new tables, guarded by ``PRAGMA user_version`` (9):
 
 * ``models``  + ``price_in_per_mtok``, ``price_out_per_mtok``, ``price_cache_read_per_mtok``
 * ``models``  + ``thinking`` (v6; NULL = send nothing, else on / off / off-prompt, see ``THINKING_MODES``)
 * ``models``  + ``timeout`` (v7; seconds, NULL = the global ``[proxy] upstream_timeout``, see ``check_timeout``)
 * ``models``  + ``toolshim`` (v8; NULL = off, "on" = turn tool calls written as text into real ones, see ``TOOLSHIM_MODES``)
+* ``models``  + ``context_window``, ``max_output`` (v9; tokens, NULL = unknown)
 * ``billing`` + ``attempts``, ``latency_ms``, ``upstream_model``, ``error``, ``request_id`` (v5: the id of the
   ``responses`` row that holds the text of the request, see ``add_response``)
 * ``aliases(glob PK, target)`` and ``settings(key PK, value)`` (what kiko-full kept in its YAML)
@@ -43,12 +44,23 @@ from urllib.parse import quote
 from kikolib import config as kconfig
 from kikolib import posix
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 # Per-model "thinking" switch for OpenAI-compatible upstreams (NULL in the column = default = send nothing):
 # on / off use the chat_template_kwargs enable_thinking body field, off-prompt adds a "/no_think" system line.
 THINKING_MODES = ("default", "on", "off", "off-prompt")
 # Per-model "toolshim" (NULL in the column = off): on = a tool call a weak model wrote as text becomes a real one.
 TOOLSHIM_MODES = ("off", "on")
+
+
+def fmt_tokens(n: Any) -> str:
+    """Token count for people: 1000000 -> "1M", 128000 -> "128k", None -> "?" (unknown)."""
+    if not isinstance(n, int) or isinstance(n, bool) or n <= 0:
+        return "?"
+    if n % 1_000_000 == 0:
+        return f"{n // 1_000_000}M"
+    if n % 1000 == 0:
+        return f"{n // 1000}k"
+    return str(n)
 
 
 def check_timeout(value: float | str | None) -> float | None:
@@ -163,6 +175,8 @@ _COLUMNS = (
     ("models", "thinking", "TEXT"),
     ("models", "timeout", "REAL"),
     ("models", "toolshim", "TEXT"),
+    ("models", "context_window", "INTEGER"),
+    ("models", "max_output", "INTEGER"),
     ("billing", "attempts", "INTEGER"),
     ("billing", "latency_ms", "INTEGER"),
     ("billing", "upstream_model", "TEXT"),
@@ -494,13 +508,18 @@ class Database:
                      model_class: str = "SONNET", priority: int = 100, price_in: float | None = None,
                      price_out: float | None = None, price_cache: float | None = None,
                      enabled: bool | None = None, status: str | None = None,
-                     thinking: str | None = None, timeout: float | str | None = None, toolshim: str | None = None) -> bool:
+                     thinking: str | None = None, timeout: float | str | None = None, toolshim: str | None = None,
+                     context_window: int | None = None, max_output: int | None = None) -> bool:
         """Insert or update by alias (id, status, enabled and given prices are kept on update). True if new.
 
         ``thinking``: one of ``THINKING_MODES``; None keeps the stored value on update ("default" clears it).
         ``timeout``: upstream timeout in seconds for this model (see ``check_timeout``); None keeps the stored value
         on update, 0 or "default" clears it (the global timeout applies again).
-        ``toolshim``: "on" / "off" (see ``TOOLSHIM_MODES``); None keeps the stored value on update."""
+        ``toolshim``: "on" / "off" (see ``TOOLSHIM_MODES``); None keeps the stored value on update.
+        ``context_window`` / ``max_output``: tokens (positive int); None keeps the stored value on update."""
+        for name, val in (("context_window", context_window), ("max_output", max_output)):
+            if val is not None and (isinstance(val, bool) or not isinstance(val, int) or val <= 0):
+                raise ValueError(f"{name} must be a positive integer (tokens)")
         cls = model_class.upper()
         tmo = check_timeout(timeout)
         if thinking is not None and thinking not in THINKING_MODES:
@@ -515,7 +534,7 @@ class Database:
             existed = con.execute("SELECT 1 FROM models WHERE alias=?", (alias,)).fetchone() is not None
             con.execute(
                 "INSERT INTO models(alias, provider, api_base, api_key_env, model_class, priority, enabled, status,"
-                " price_in_per_mtok, price_out_per_mtok, price_cache_read_per_mtok, thinking, timeout, toolshim) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                " price_in_per_mtok, price_out_per_mtok, price_cache_read_per_mtok, thinking, timeout, toolshim, context_window, max_output) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
                 " ON CONFLICT(alias) DO UPDATE SET provider=excluded.provider, api_base=excluded.api_base,"
                 " api_key_env=excluded.api_key_env, model_class=excluded.model_class, priority=excluded.priority,"
                 " enabled=COALESCE(?, models.enabled), status=COALESCE(?, models.status),"
@@ -525,11 +544,13 @@ class Database:
                 " models.price_cache_read_per_mtok),"
                 " thinking=CASE WHEN ? THEN models.thinking ELSE excluded.thinking END,"
                 " timeout=CASE WHEN ? THEN models.timeout ELSE excluded.timeout END,"
-                " toolshim=CASE WHEN ? THEN models.toolshim ELSE excluded.toolshim END",
+                " toolshim=CASE WHEN ? THEN models.toolshim ELSE excluded.toolshim END,"
+                " context_window=COALESCE(excluded.context_window, models.context_window),"
+                " max_output=COALESCE(excluded.max_output, models.max_output)",
                 (alias, provider, api_base, api_key_env, cls, int(priority),
                  1 if enabled is None else int(enabled), status or "unknown", price_in, price_out, price_cache,
                  None if thinking in (None, "default") else thinking, None if timeout is None else tmo,
-                 "on" if toolshim == "on" else None,
+                 "on" if toolshim == "on" else None, context_window, max_output,
                  None if enabled is None else int(enabled), status, int(thinking is None), int(timeout is None), int(toolshim is None)),
             )
         return not existed

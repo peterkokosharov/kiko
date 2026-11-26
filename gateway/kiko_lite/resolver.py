@@ -372,6 +372,15 @@ class DBResolver:
                 seen[n] = None
         return list(seen)
 
+    def model_limits(self, model: str) -> tuple[int | None, int | None]:
+        """(context window, max output) in tokens of what ``model`` resolves to; None = unknown."""
+        snap = self.catalog.snapshot()
+        hit = self(model)
+        info = snap.by_pname.get(hit[0]) if hit else None
+        if info is None:
+            return None, None
+        return info.row.get("context_window"), info.row.get("max_output")
+
     def candidates(self, model: str) -> list[tuple[str, str]]:
         """Ordered targets for the gateway's failover: for a class name every enabled model of the class (ok,
         unknown, then error; priority inside), else the single ``__call__`` target (aliases, env, direct)."""
