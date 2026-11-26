@@ -299,7 +299,7 @@ class TestSettings(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             tray_json = Path(td) / "tray.json"
             s = Settings(
-                config_path=Path("/tmp/cfg.yaml"),
+                config_path=Path(td) / "cfg.yaml",
                 port=5000,
                 kiko_executable="mykiko",
                 pystray_backend="appindicator",
